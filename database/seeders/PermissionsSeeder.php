@@ -10,48 +10,33 @@ class PermissionsSeeder extends Seeder
 {
     public function run(): void
     {
-        // Reset cached roles and permissions
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // Daftar semua permissions
+        // Daftar permissions dalam Bahasa Indonesia yang disederhanakan
         $permissions = [
-            'presensi_harian', 'presensi_ekskul', 'presensi_kegiatan',
-            'input_poin_pelanggaran', 'lihat_rekap_kelas', 'kirim_pengumuman',
-            'buku_penghubung', 'manage_users', 'manage_roles', 'manage_master_data'
+            'melihat_pengguna', 'mengelola_pengguna',
+            'melihat_peran', 'mengelola_peran',
+            'melihat_tahun_ajaran', 'mengelola_tahun_ajaran',
+            'melihat_kelas', 'mengelola_kelas',       // Disederhanakan
+            'melihat_siswa', 'mengelola_siswa',       // Disederhanakan
+            'melihat_mata_pelajaran', 'mengelola_mata_pelajaran', // Baru
         ];
 
         foreach ($permissions as $permission) {
             Permission::firstOrCreate(['name' => $permission]);
         }
-        
-        // --- BUAT ROLES DAN BERIKAN PERMISSIONS ---
 
-        // Super Admin -> Semua hak akses
+        // --- BUAT ROLES ---
+
         $superAdmin = Role::firstOrCreate(['name' => 'Super Admin']);
         $superAdmin->givePermissionTo(Permission::all());
 
-        // Kepala Sekolah -> Bisa melihat semua dan mengelola beberapa hal
-        $kepsek = Role::firstOrCreate(['name' => 'Kepala Sekolah']);
-        $kepsek->givePermissionTo(['lihat_rekap_kelas', 'kirim_pengumuman', 'manage_master_data', 'presensi_kegiatan']);
-
-        // Waka -> Fokus pada kegiatan dan pengumuman
-        $waka = Role::firstOrCreate(['name' => 'Waka']);
-        $waka->givePermissionTo(['lihat_rekap_kelas', 'kirim_pengumuman', 'presensi_kegiatan']);
-
-        // Guru Mapel -> Hanya presensi harian
-        $guruMapel = Role::firstOrCreate(['name' => 'Guru Mapel']);
-        $guruMapel->givePermissionTo(['presensi_harian']);
-
-        // Guru Mapel & Ekstra -> Presensi harian dan ekskul
-        $guruMapelEkstra = Role::firstOrCreate(['name' => 'Guru Mapel & Ekstra']);
-        $guruMapelEkstra->givePermissionTo(['presensi_harian', 'presensi_ekskul']);
-
-        // Guru Wali Kelas -> Fokus pada manajemen kelasnya
         $waliKelas = Role::firstOrCreate(['name' => 'Guru Wali Kelas']);
-        $waliKelas->givePermissionTo(['presensi_harian', 'lihat_rekap_kelas', 'buku_penghubung', 'input_poin_pelanggaran', 'kirim_pengumuman']);
+        // Sekarang Wali Kelas bisa melihat semua kelas dan siswa,
+        // filter akan menangani tampilan "kelas yang diampu"
+        $waliKelas->givePermissionTo(['melihat_kelas', 'melihat_siswa']);
 
-        // Guru BK -> Fokus pada pelanggaran dan komunikasi
-        $guruBk = Role::firstOrCreate(['name' => 'Guru BK']);
-        $guruBk->givePermissionTo(['input_poin_pelanggaran', 'buku_penghubung', 'lihat_rekap_kelas']);
+        $guruMapel = Role::firstOrCreate(['name' => 'Guru Mata Pelajaran']);
+        $guruMapel->givePermissionTo(['melihat_kelas', 'melihat_mata_pelajaran']);
     }
 }

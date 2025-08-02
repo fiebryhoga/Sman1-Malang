@@ -2,33 +2,50 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
+use App\Models\Kelas;
 use App\Models\User;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
 class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        $users = [
-            ['name' => 'Super Admin', 'email' => 'superadmin@sekolah.app', 'role' => 'Super Admin'],
-            ['name' => 'Kepala Sekolah', 'email' => 'kepsek@sekolah.app', 'role' => 'Kepala Sekolah'],
-            ['name' => 'Waka Kesiswaan', 'email' => 'waka@sekolah.app', 'role' => 'Waka'],
-            ['name' => 'Guru Matematika', 'email' => 'gurumapel@sekolah.app', 'role' => 'Guru Mapel'],
-            ['name' => 'Guru Olahraga & Basket', 'email' => 'guruekstra@sekolah.app', 'role' => 'Guru Mapel & Ekstra'],
-            ['name' => 'Wali Kelas 12A', 'email' => 'wali@sekolah.app', 'role' => 'Guru Wali Kelas'],
-            ['name' => 'Guru Bimbingan Konseling', 'email' => 'gurubk@sekolah.app', 'role' => 'Guru BK'],
-        ];
+        // Buat Super Admin
+        $superAdmin = User::firstOrCreate(
+            ['email' => 'superadmin@sekolah.app'],
+            [
+                'name' => 'Super Admin',
+                'password' => Hash::make('password'),
+            ]
+        );
+        $superAdmin->assignRole('Super Admin');
 
-        foreach ($users as $userData) {
-            $user = User::firstOrCreate(
-                ['email' => $userData['email']],
+        // Buat Wali Kelas
+        $waliKelasUser = User::firstOrCreate(
+            ['email' => 'wali@sekolah.app'],
+            [
+                'name' => 'Budi Santoso (Wali Kelas)',
+                'password' => Hash::make('password'),
+            ]
+        );
+        $waliKelasUser->assignRole('Guru Wali Kelas');
+
+
+
+        $guruMapel = User::firstOrCreate(
+                ['email' => 'gurumapel@sekolah.app'],
                 [
-                    'name' => $userData['name'],
-                    'password' => Hash::make('password'), // Password default untuk semua
+                    'name' => 'Rina Marlina (Guru Mapel)',
+                    'password' => Hash::make('password'),
                 ]
             );
-            $user->assignRole($userData['role']);
+            $guruMapel->assignRole('Guru Mata Pelajaran'); // Pastikan role ini ada
+
+        // Tugaskan user tersebut sebagai wali di kelas pertama yang ditemukan
+        $kelasPertama = Kelas::first();
+        if ($kelasPertama) {
+            $kelasPertama->update(['wali_kelas_id' => $waliKelasUser->id]);
         }
     }
 }
