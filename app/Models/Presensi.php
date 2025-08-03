@@ -1,41 +1,48 @@
 <?php
-// app/Models/Presensi.php
 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Presensi extends Model
 {
     use HasFactory;
-
-    protected $table = 'presensi';
     protected $guarded = [];
 
-    protected $casts = [
-        'tanggal' => 'date',
-    ];
+    // Logika untuk mengisi created_by secara otomatis
+    protected static function booted(): void
+    {
+        static::creating(function (Presensi $presensi) {
+            if (auth()->check()) {
+                $presensi->created_by = auth()->id();
+            }
+        });
+    }
 
-    public function kelas(): BelongsTo
+    public function kelas()
     {
         return $this->belongsTo(Kelas::class);
     }
 
-    public function mataPelajaran(): BelongsTo
+    public function mataPelajaran()
     {
         return $this->belongsTo(MataPelajaran::class);
     }
 
-    public function guru(): BelongsTo
+    public function guru()
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->belongsTo(User::class, 'guru_id');
     }
 
-    public function kehadiranSiswa(): HasMany
+    // Relasi baru untuk mengambil data pembuat presensi
+    public function pembuat()
     {
-        return $this->hasMany(KehadiranSiswa::class);
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function detailPresensi()
+    {
+        return $this->hasMany(DetailPresensi::class);
     }
 }

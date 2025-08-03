@@ -33,7 +33,7 @@ class Kelas extends Model
     public function mataPelajarans(): BelongsToMany
     {
         return $this->belongsToMany(MataPelajaran::class, 'kelas_mata_pelajaran')
-                    ->withPivot('user_id') // Ini penting untuk mengambil ID guru pengampu
+                    ->withPivot('user_id')
                     ->withTimestamps();
     }
 

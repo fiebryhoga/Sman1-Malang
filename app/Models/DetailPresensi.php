@@ -1,25 +1,21 @@
 <?php
-// app/Models/KehadiranSiswa.php
 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class KehadiranSiswa extends Model
+class DetailPresensi extends Model
 {
     use HasFactory;
-
-    protected $table = 'kehadiran_siswa';
     protected $guarded = [];
 
-    public function presensi(): BelongsTo
+    public function presensi()
     {
         return $this->belongsTo(Presensi::class);
     }
 
-    public function siswa(): BelongsTo
+    public function siswa()
     {
         return $this->belongsTo(Siswa::class);
     }

@@ -21,7 +21,7 @@ class KelasRelationManager extends RelationManager
             ->schema([
                 Select::make('user_id')
                     ->label('Guru Pengampu')
-                    ->options(User::all()->pluck('name', 'id')) // Semua user bisa jadi guru
+                    ->options(User::all()->pluck('name', 'id'))
                     ->searchable()
                     ->required(),
             ]);
@@ -36,17 +36,24 @@ class KelasRelationManager extends RelationManager
                 TextColumn::make('guru')
                     ->label('Guru Pengampu')
                     ->getStateUsing(function ($record) {
-                        // Ambil nama guru dari pivot table
                         return User::find($record->pivot->user_id)?->name ?? 'N/A';
                     }),
             ])
             ->headerActions([
                 Tables\Actions\AttachAction::make()
                     ->form(fn (Tables\Actions\AttachAction $action): array => [
-                        // PERBAIKAN: Gunakan ->options() untuk memuat semua kelas secara langsung
                         $action->getRecordSelect()
                             ->label('Pilih Kelas')
-                            ->options(Kelas::all()->pluck('nama', 'id'))
+                            // --- PERBAIKAN DI SINI ---
+                            // Logika ini akan memfilter kelas yang sudah ditambahkan
+                            ->options(function () {
+                                $ownerRecord = $this->getOwnerRecord();
+                                // Ambil ID semua kelas yang sudah terhubung
+                                $attachedKelasIds = $ownerRecord->kelas()->pluck('kelas.id');
+
+                                // Tampilkan hanya kelas yang ID-nya tidak ada di daftar terhubung
+                                return Kelas::whereNotIn('id', $attachedKelasIds)->pluck('nama', 'id');
+                            })
                             ->searchable(),
                         Select::make('user_id')
                             ->label('Guru Pengampu')
