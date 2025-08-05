@@ -183,7 +183,9 @@ return [
          * When permissions or roles are updated the cache is flushed automatically.
          */
 
-        'expiration_time' => \DateInterval::createFromDateString('24 hours'),
+        // 'expiration_time' => \DateInterval::createFromDateString('24 hours'),
+                'expiration_time' => 60 * 24, // Cache akan direset setiap 24 jam (dalam menit)
+
 
         /*
          * The cache key used to store all permissions.

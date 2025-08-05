@@ -41,6 +41,10 @@ return [
             'queue' => env('DB_QUEUE', 'default'),
             'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
             'after_commit' => false,
+
+            'retry_after' => 90, // Waktu tunggu sebelum job di-retry (opsional)
+        'timeout' => 60, // <-- Tambahkan baris ini
+        'tries' => 3,    // <-- Tambahkan baris ini
         ],
 
         'beanstalkd' => [

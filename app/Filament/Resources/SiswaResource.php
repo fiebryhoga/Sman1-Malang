@@ -17,6 +17,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 
 class SiswaResource extends Resource
 {
@@ -26,10 +27,6 @@ class SiswaResource extends Resource
     protected static ?string $navigationGroup = 'Data Master';
     protected static ?string $label = 'Siswa';
 
-    /**
-     * Memperbaiki pengecekan izin untuk melihat resource Siswa.
-     * Menggunakan izin 'melihat_siswa' yang sudah didefinisikan di seeder.
-     */
     public static function canViewAny(): bool
     {
         return auth()->user()->can('melihat_siswa');
@@ -50,6 +47,12 @@ class SiswaResource extends Resource
         return auth()->user()->can('mengelola_siswa');
     }
 
+    // --- Perbaikan Eager Loading ---
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with(['kelas']);
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -60,6 +63,11 @@ class SiswaResource extends Resource
                     TextInput::make('nama_lengkap')->required(),
                     Radio::make('jenis_kelamin')->options(['L' => 'Laki-laki', 'P' => 'Perempuan'])->required(),
                     Select::make('kelas_id')->relationship('kelas', 'nama')->searchable()->preload()->label('Kelas'),
+                    TextInput::make('nomor_ortu')
+                        ->label('Nomor HP Orang Tua')
+                        ->tel()
+                        ->nullable()
+                        ->maxLength(255),
                 ])->columns(2)
             ]);
     }
@@ -68,21 +76,20 @@ class SiswaResource extends Resource
     {
         return $table
             ->columns([
-                ImageColumn::make('foto')->circular(),
+                // ImageColumn seringkali berat. Kita hapus atau gunakan yang sederhana
                 TextColumn::make('nis')->searchable()->sortable(),
                 TextColumn::make('nama_lengkap')->searchable(),
+                TextColumn::make('nomor_ortu')->searchable()->label('Nomor HP Orang Tua'),
+                // Eager loading di getEloquentQuery akan memastikan ini cepat
                 TextColumn::make('kelas.nama')->searchable()->sortable()->default('Belum ada kelas'),
                 TextColumn::make('jenis_kelamin'),
             ])
             ->filters([
-                // Filter berdasarkan kelas
                 SelectFilter::make('kelas_id')
                     ->relationship('kelas', 'nama')
                     ->searchable()
                     ->preload()
                     ->label('Filter Berdasarkan Kelas'),
-
-                // Filter berdasarkan jenis kelamin
                 SelectFilter::make('jenis_kelamin')
                     ->options([
                         'L' => 'Laki-laki',
@@ -90,6 +97,7 @@ class SiswaResource extends Resource
                     ])
             ])
             ->actions([
+                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ]);
     }
@@ -100,6 +108,7 @@ class SiswaResource extends Resource
             'index' => Pages\ListSiswas::route('/'),
             'create' => Pages\CreateSiswa::route('/create'),
             'edit' => Pages\EditSiswa::route('/{record}/edit'),
+            'view' => Pages\ViewSiswa::route('/{record}'),
         ];
     }
 }
