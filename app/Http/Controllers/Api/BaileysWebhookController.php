@@ -5,50 +5,56 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Siswa;
 use App\Models\DetailPresensi;
+use App\Services\BaileysService; // Tambahkan ini
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
-class FonteWebhookController extends Controller
+class BaileysWebhookController extends Controller
 {
-    /**
-     * Menerima dan memproses pesan masuk dari Fonte.
-     */
+    protected $baileysService;
+
+    // Gunakan dependency injection untuk BaileysService
+    public function __construct(BaileysService $baileysService)
+    {
+        $this->baileysService = $baileysService;
+    }
+
     public function handle(Request $request)
     {
         $sender = $request->input('sender');
         $message = $request->input('message');
 
-        Log::info('Pesan masuk dari Fonte:', $request->all());
+        Log::info('Pesan masuk dari Baileys:', $request->all());
 
+        $replyMessage = $this->processMessage($message);
+        
+        // Kirim balasan melalui API Baileys
+        $this->baileysService->sendMessage($sender, $replyMessage);
+        
+        // Respons ke server Node.js
+        return response()->json(['status' => 'success']);
+    }
+
+    private function processMessage($message)
+    {
         $parts = explode(' ', $message, 2);
         $keyword = strtolower($parts[0] ?? '');
         $parameter = $parts[1] ?? '';
 
-        $replyMessage = '';
-
         if ($keyword === 'presensi' && !empty($parameter)) {
             if (is_numeric($parameter)) {
-                $replyMessage = $this->getPresensiSiswaByNis($parameter);
+                return $this->getPresensiSiswaByNis($parameter);
             } else {
-                $replyMessage = $this->getPresensiSiswaByName($parameter);
+                return $this->getPresensiSiswaByName($parameter);
             }
-        } else {
-            $replyMessage = "Format pesan salah. \n\nKetik: *presensi [Nama Lengkap Siswa]* \nAtau: *presensi [NIS SISWA]*";
         }
-
-        $this->sendReply($sender, $replyMessage);
-
-        return response()->json(['status' => 'success']);
+        
+        return "Format pesan salah. \n\nKetik: *presensi [Nama Lengkap Siswa]* \nAtau: *presensi [NIS SISWA]*";
     }
 
-    /**
-     * Mencari data presensi siswa berdasarkan Nama.
-     */
     private function getPresensiSiswaByName($nama)
     {
-        // Menambahkan with('kelas') untuk efisiensi query
         $siswas = Siswa::with('kelas')->where('nama_lengkap', 'like', '%' . $nama . '%')->get();
 
         if ($siswas->isEmpty()) {
@@ -66,12 +72,8 @@ class FonteWebhookController extends Controller
         return $this->formatPresensiMessage($siswas->first());
     }
 
-    /**
-     * Mencari data presensi siswa berdasarkan NIS.
-     */
     private function getPresensiSiswaByNis($nis)
     {
-        // Menambahkan with('kelas') untuk efisiensi query
         $siswa = Siswa::with('kelas')->where('nis', $nis)->first();
 
         if (!$siswa) {
@@ -81,12 +83,8 @@ class FonteWebhookController extends Controller
         return $this->formatPresensiMessage($siswa);
     }
 
-    /**
-     * PERUBAHAN UTAMA: Mengambil dan memformat pesan rekap presensi untuk seorang siswa.
-     */
     private function formatPresensiMessage(Siswa $siswa)
     {
-        // Ambil informasi hari dan tanggal saat ini dalam Bahasa Indonesia
         $sekarang = Carbon::now('Asia/Jakarta');
         $hariIni = $sekarang->locale('id')->translatedFormat('l');
         $tanggalIni = $sekarang->locale('id')->translatedFormat('d F Y');
@@ -97,8 +95,11 @@ class FonteWebhookController extends Controller
             })
             ->with('presensi.mataPelajaran')
             ->get();
+            
+        // ... (Logika format pesan yang sama dengan kode Fonte Anda) ...
+        // Karena logika ini sudah ada di kode Anda, saya tidak perlu menuliskannya lagi.
+        // Anda bisa menyalinnya langsung dari `FonteWebhookController`.
 
-        // Jika tidak ada data presensi
         if ($presensiHariIni->isEmpty()) {
             $pesanKosong = "Assalamualaikum Bapak/Ibu,\n\n";
             $pesanKosong .= "Dengan hormat, kami informasikan bahwa hingga saat ini belum terdapat data kehadiran untuk siswa/i atas nama *{$siswa->nama_lengkap}* pada hari *{$hariIni}, {$tanggalIni}*.\n\n";
@@ -106,9 +107,8 @@ class FonteWebhookController extends Controller
             return $pesanKosong;
         }
 
-        // Jika ada data presensi, buat pesan lengkap
         $namaSiswa = $siswa->nama_lengkap;
-        $namaKelas = $siswa->kelas->nama ?? 'Informasi Kelas Tidak Ditemukan'; // Fallback jika relasi kelas tidak ada
+        $namaKelas = $siswa->kelas->nama ?? 'Informasi Kelas Tidak Ditemukan';
 
         $reply = "Assalamualaikum Bapak/Ibu,\n\n";
         $reply .= "Dengan hormat, kami sampaikan rekapitulasi kehadiran siswa/i pada:\n";
@@ -121,7 +121,6 @@ class FonteWebhookController extends Controller
         foreach ($presensiHariIni as $detail) {
             $status = ucwords($detail->status);
             $mapel = $detail->presensi->mataPelajaran->nama;
-            // Mengambil waktu dari data presensi, bukan waktu saat ini
             $waktu = Carbon::parse($detail->presensi->created_at)->format('H:i');
             $reply .= "- Jam {$waktu} - {$mapel}: *{$status}*\n";
         }
@@ -129,25 +128,5 @@ class FonteWebhookController extends Controller
         $reply .= "\nDemikian informasi yang dapat kami sampaikan. Terima kasih atas perhatiannya.";
 
         return $reply;
-    }
-
-    /**
-     * Mengirim pesan balasan ke API Fonte.
-     */
-    private function sendReply($target, $message)
-    {
-        $token = env('FONNTE_API_TOKEN');
-
-        if (!$token) {
-            Log::error('FONNTE_API_TOKEN tidak ditemukan di file .env');
-            return;
-        }
-
-        Http::withHeaders([
-            'Authorization' => $token,
-        ])->post('https://api.fonnte.com/send', [
-            'target' => $target,
-            'message' => $message,
-        ]);
     }
 }
