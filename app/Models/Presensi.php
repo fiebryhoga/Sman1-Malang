@@ -10,6 +10,13 @@ class Presensi extends Model
     use HasFactory;
     protected $guarded = [];
 
+    /**
+     * PENTING: Memberitahu Laravel cara menangani tipe data kolom.
+     */
+    protected $casts = [
+        'tanggal' => 'date',
+    ];
+
     // Logika untuk mengisi created_by secara otomatis
     protected static function booted(): void
     {
@@ -20,6 +27,7 @@ class Presensi extends Model
         });
     }
 
+    // ... sisa relasi Anda sudah benar ...
     public function kelas()
     {
         return $this->belongsTo(Kelas::class);
@@ -35,7 +43,6 @@ class Presensi extends Model
         return $this->belongsTo(User::class, 'guru_id');
     }
 
-    // Relasi baru untuk mengambil data pembuat presensi
     public function pembuat()
     {
         return $this->belongsTo(User::class, 'created_by');

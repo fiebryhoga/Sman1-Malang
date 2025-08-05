@@ -38,16 +38,12 @@ class PresensiResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-qr-code';
     protected static ?string $navigationGroup = 'Akademik';
 
+    // ... (kode canViewAny, canCreate, canEdit tidak berubah) ...
     public static function canViewAny(): bool
     {
-        // --- PERBAIKAN FINAL ---
-        // Cek secara eksplisit apakah user memiliki salah satu peran yang diizinkan.
-        // Ini adalah cara yang lebih andal jika cache permission bermasalah.
         if (auth()->user()->hasRole(['Super Admin', 'Guru Wali Kelas', 'Guru Mata Pelajaran'])) {
             return true;
         }
-
-        // Sebagai fallback, tetap periksa permission untuk peran lain di masa depan.
         return auth()->user()->can('melihat_presensi');
     }
 
@@ -58,7 +54,6 @@ class PresensiResource extends Resource
 
     public static function canEdit(Model $record): bool
     {
-        // Izinkan edit jika punya izin 'semua', ATAU jika punya izin 'diampu' DAN presensi ini dibuat olehnya.
         return auth()->user()->can('mengelola_presensi_semua') ||
                (auth()->user()->can('mengelola_presensi_diampu') && $record->guru_id === auth()->id());
     }
@@ -73,7 +68,9 @@ class PresensiResource extends Resource
                         Infolists\Components\TextEntry::make('mataPelajaran.nama'),
                         Infolists\Components\TextEntry::make('guru.name')->label('Guru Pengampu'),
                         Infolists\Components\TextEntry::make('pembuat.name')->label('Dibuat Oleh'),
-                        Infolists\Components\TextEntry::make('created_at')->label('Waktu Presensi')->dateTime('d F Y, H:i:s'),
+                        Infolists\Components\TextEntry::make('tanggal')
+                            ->label('Waktu Presensi')
+                            ->formatStateUsing(fn(Model $record) => $record->hari . ', ' . $record->tanggal->translatedFormat('d F Y')),
                         Infolists\Components\TextEntry::make('pertemuan_ke'),
                         Infolists\Components\TextEntry::make('materi')->columnSpanFull(),
                     ])->columns(3),
@@ -109,6 +106,15 @@ class PresensiResource extends Resource
                         ->schema([
                             Section::make('Detail Sesi Presensi')
                                 ->schema([
+                                    Placeholder::make('jadwal_info')
+                                        ->label('Kelas & Mata Pelajaran')
+                                        ->content(function (?Presensi $record): string {
+                                            if (!$record) return '-';
+                                            return "{$record->kelas->nama} - {$record->mataPelajaran->nama}";
+                                        })
+                                        ->visibleOn('edit'),
+
+                                    // DIKEMBALIKAN KE KODE ASLI ANDA YANG SUDAH BENAR
                                     Select::make('jadwal_id')
                                         ->label('Pilih Kelas & Mata Pelajaran')
                                         ->options(function () {
@@ -117,13 +123,12 @@ class PresensiResource extends Resource
                                                 ->join('kelas', 'kelas_mata_pelajaran.kelas_id', '=', 'kelas.id')
                                                 ->join('mata_pelajarans', 'kelas_mata_pelajaran.mata_pelajaran_id', '=', 'mata_pelajarans.id');
 
-                                            // Jika user tidak punya izin 'semua', filter berdasarkan kelas yang diajar
                                             if (!$user->can('mengelola_presensi_semua')) {
                                                 $query->where('kelas_mata_pelajaran.user_id', $user->id);
                                             }
 
                                             $jadwal = $query->select('kelas_mata_pelajaran.id', 'kelas.nama as nama_kelas', 'mata_pelajarans.nama as nama_mapel')->get();
-                                            
+
                                             return $jadwal->pluck('nama_mapel', 'id')->mapWithKeys(function ($mapel, $id) use ($jadwal) {
                                                 $item = $jadwal->firstWhere('id', $id);
                                                 return [$id => "{$item->nama_kelas} - {$mapel}"];
@@ -144,10 +149,11 @@ class PresensiResource extends Resource
                                             ])->all();
                                             $set('detailPresensi', $detailData);
                                         })
-                                        ->disabled(fn (string $operation): bool => $operation !== 'create'),
+                                        ->hiddenOn('edit'),
+                                    
                                     DatePicker::make('tanggal')->default(now())->required(),
                                     TextInput::make('pertemuan_ke')->numeric()->required()->label('Pertemuan Ke'),
-                                    Textarea::make('materi')->required(),
+                                    Textarea::make('materi')->required()->columnSpanFull(),
                                 ])->columns(2),
                         ]),
                     Wizard\Step::make('Absensi Siswa')
@@ -163,11 +169,12 @@ class PresensiResource extends Resource
                                                     ->content(function (Get $get): HtmlString {
                                                         $nama = $get('nama_siswa');
                                                         $fotoPath = $get('foto_siswa');
-                                                        $fotoUrl = $fotoPath ? Storage::url($fotoPath) : 'https://ui-avatars.com/api/?name=' . urlencode($nama);
+                                                        $namaDefault = $nama ?: 'Memuat...';
+                                                        $fotoUrl = $fotoPath ? Storage::url($fotoPath) : 'https://ui-avatars.com/api/?name=' . urlencode($namaDefault);
                                                         return new HtmlString(
                                                             '<div class="flex items-center gap-x-4">
-                                                                <img src="' . $fotoUrl . '" alt="Foto ' . e($nama) . '" class="w-10 h-10 rounded-full object-cover" />
-                                                                <span class="font-medium text-gray-950 dark:text-white">' . e($nama) . '</span>
+                                                                <img src="' . $fotoUrl . '" alt="Foto ' . e($namaDefault) . '" class="w-10 h-10 rounded-full object-cover" />
+                                                                <span class="font-medium text-gray-950 dark:text-white">' . e($namaDefault) . '</span>
                                                             </div>'
                                                         );
                                                     }),
@@ -179,18 +186,21 @@ class PresensiResource extends Resource
                                         ])
                                         ->mutateRelationshipDataBeforeCreateUsing(fn (array $data): array => self::prepareDetailPresensiData($data))
                                         ->mutateRelationshipDataBeforeSaveUsing(fn (array $data): array => self::prepareDetailPresensiData($data))
-                                        ->afterStateHydrated(function (Repeater $component, ?Model $record) {
-                                            if (!$record) return;
-                                            $details = $record->detailPresensi->mapWithKeys(function ($detail) {
-                                                return [$detail->id => [
-                                                    'siswa_id' => $detail->siswa_id,
-                                                    'nama_siswa' => $detail->siswa->nama_lengkap,
-                                                    'foto_siswa' => $detail->siswa->foto,
-                                                    'is_hadir' => $detail->status === 'hadir',
-                                                    'status' => $detail->status === 'hadir' ? 'alpha' : $detail->status,
-                                                ]];
-                                            })->all();
-                                            $component->state($details);
+                                        // PERBAIKAN: Menambahkan data siswa saat form edit dimuat
+                                        ->afterStateHydrated(function (array $state, Set $set): void {
+                                            $siswaIds = array_column($state, 'siswa_id');
+                                            $siswas = Siswa::whereIn('id', $siswaIds)->get()->keyBy('id');
+                                            $newState = [];
+                                            foreach ($state as $key => $item) {
+                                                $siswa = $siswas->get($item['siswa_id']);
+                                                if ($siswa) {
+                                                    $item['nama_siswa'] = $siswa->nama_lengkap;
+                                                    $item['foto_siswa'] = $siswa->foto;
+                                                    $item['is_hadir'] = $item['status'] === 'hadir';
+                                                }
+                                                $newState[$key] = $item;
+                                            }
+                                            $set('detailPresensi', $newState);
                                         })
                                         ->grid(1)->addable(false)->deletable(false)->reorderable(false),
                                 ]),
@@ -210,16 +220,25 @@ class PresensiResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('kelas.nama'),
-                TextColumn::make('mataPelajaran.nama'),
-                TextColumn::make('tanggal')->date('d F Y', 'Asia/Jakarta'),
+                TextColumn::make('kelas.nama')->searchable(),
+                TextColumn::make('mataPelajaran.nama')->searchable(),
+                // PERBAIKAN: Menampilkan hari dan tanggal
+                TextColumn::make('tanggal')
+                    ->label('Waktu Presensi')
+                    ->formatStateUsing(function (Model $record) {
+                        // Pastikan 'tanggal' di-cast sebagai date di Model Presensi
+                        return $record->hari . ', ' . $record->tanggal->translatedFormat('d F Y');
+                    })
+                    ->sortable(),
                 TextColumn::make('pertemuan_ke'),
-                TextColumn::make('pembuat.name')->label('Dibuat Oleh'),
+                TextColumn::make('pembuat.name')->label('Dibuat Oleh')->searchable(),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
-            ]);
+            ])
+            // PERBAIKAN: Mengurutkan data dari yang terbaru
+            ->defaultSort('tanggal', 'desc');
     }
 
     public static function getPages(): array

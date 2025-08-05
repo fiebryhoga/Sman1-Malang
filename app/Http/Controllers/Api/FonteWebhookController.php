@@ -22,7 +22,6 @@ class FonteWebhookController extends Controller
 
         Log::info('Pesan masuk dari Fonte:', $request->all());
 
-        // Pisahkan pesan menjadi kata kunci dan parameter (Nama atau NIS)
         $parts = explode(' ', $message, 2);
         $keyword = strtolower($parts[0] ?? '');
         $parameter = $parts[1] ?? '';
@@ -30,14 +29,13 @@ class FonteWebhookController extends Controller
         $replyMessage = '';
 
         if ($keyword === 'presensi' && !empty($parameter)) {
-            // Jika parameter berupa angka, cari berdasarkan NIS. Jika tidak, cari berdasarkan nama.
             if (is_numeric($parameter)) {
                 $replyMessage = $this->getPresensiSiswaByNis($parameter);
             } else {
                 $replyMessage = $this->getPresensiSiswaByName($parameter);
             }
         } else {
-            $replyMessage = "Format pesan salah. \n\nKetik: *presensi [Nama Lengkap Siswa]* \nAtau: *presensi [NIS_SISWA]*";
+            $replyMessage = "Format pesan salah. \n\nKetik: *presensi [Nama Lengkap Siswa]* \nAtau: *presensi [NIS SISWA]*";
         }
 
         $this->sendReply($sender, $replyMessage);
@@ -50,7 +48,8 @@ class FonteWebhookController extends Controller
      */
     private function getPresensiSiswaByName($nama)
     {
-        $siswas = Siswa::where('nama_lengkap', 'like', '%' . $nama . '%')->get();
+        // Menambahkan with('kelas') untuk efisiensi query
+        $siswas = Siswa::with('kelas')->where('nama_lengkap', 'like', '%' . $nama . '%')->get();
 
         if ($siswas->isEmpty()) {
             return "Siswa dengan nama yang mengandung *'{$nama}'* tidak ditemukan.";
@@ -64,7 +63,6 @@ class FonteWebhookController extends Controller
             return $response;
         }
 
-        // Jika hanya satu siswa yang ditemukan, format pesannya
         return $this->formatPresensiMessage($siswas->first());
     }
 
@@ -73,7 +71,8 @@ class FonteWebhookController extends Controller
      */
     private function getPresensiSiswaByNis($nis)
     {
-        $siswa = Siswa::where('nis', $nis)->first();
+        // Menambahkan with('kelas') untuk efisiensi query
+        $siswa = Siswa::with('kelas')->where('nis', $nis)->first();
 
         if (!$siswa) {
             return "Siswa dengan NIS *{$nis}* tidak ditemukan.";
@@ -83,28 +82,51 @@ class FonteWebhookController extends Controller
     }
 
     /**
-     * Mengambil dan memformat pesan rekap presensi untuk seorang siswa.
+     * PERUBAHAN UTAMA: Mengambil dan memformat pesan rekap presensi untuk seorang siswa.
      */
     private function formatPresensiMessage(Siswa $siswa)
     {
+        // Ambil informasi hari dan tanggal saat ini dalam Bahasa Indonesia
+        $sekarang = Carbon::now('Asia/Jakarta');
+        $hariIni = $sekarang->locale('id')->translatedFormat('l');
+        $tanggalIni = $sekarang->locale('id')->translatedFormat('d F Y');
+
         $presensiHariIni = DetailPresensi::where('siswa_id', $siswa->id)
-            ->whereHas('presensi', function ($query) {
-                $query->whereDate('tanggal', Carbon::today('Asia/Jakarta'));
+            ->whereHas('presensi', function ($query) use ($sekarang) {
+                $query->whereDate('tanggal', $sekarang);
             })
             ->with('presensi.mataPelajaran')
             ->get();
 
+        // Jika tidak ada data presensi
         if ($presensiHariIni->isEmpty()) {
-            return "Belum ada data presensi untuk siswa *{$siswa->nama_lengkap}* pada hari ini.";
+            $pesanKosong = "Assalamualaikum Bapak/Ibu,\n\n";
+            $pesanKosong .= "Dengan hormat, kami informasikan bahwa hingga saat ini belum terdapat data kehadiran untuk siswa/i atas nama *{$siswa->nama_lengkap}* pada hari *{$hariIni}, {$tanggalIni}*.\n\n";
+            $pesanKosong .= "Terima kasih.";
+            return $pesanKosong;
         }
 
-        $reply = "Rekap Presensi untuk *{$siswa->nama_lengkap}* hari ini:\n\n";
+        // Jika ada data presensi, buat pesan lengkap
+        $namaSiswa = $siswa->nama_lengkap;
+        $namaKelas = $siswa->kelas->nama ?? 'Informasi Kelas Tidak Ditemukan'; // Fallback jika relasi kelas tidak ada
+
+        $reply = "Assalamualaikum Bapak/Ibu,\n\n";
+        $reply .= "Dengan hormat, kami sampaikan rekapitulasi kehadiran siswa/i pada:\n";
+        $reply .= "*Hari, Tanggal:* {$hariIni}, {$tanggalIni}\n\n";
+        $reply .= "Atas nama:\n";
+        $reply .= "*Nama Siswa:* {$namaSiswa}\n";
+        $reply .= "*Kelas:* {$namaKelas}\n\n";
+        $reply .= "Berikut adalah rincian kehadirannya:\n";
+
         foreach ($presensiHariIni as $detail) {
             $status = ucwords($detail->status);
             $mapel = $detail->presensi->mataPelajaran->nama;
-            $waktu = $detail->presensi->created_at->format('H:i');
-            $reply .= "- *{$mapel}* ({$waktu}): *{$status}*\n";
+            // Mengambil waktu dari data presensi, bukan waktu saat ini
+            $waktu = Carbon::parse($detail->presensi->created_at)->format('H:i');
+            $reply .= "- Jam {$waktu} - {$mapel}: *{$status}*\n";
         }
+
+        $reply .= "\nDemikian informasi yang dapat kami sampaikan. Terima kasih atas perhatiannya.";
 
         return $reply;
     }
