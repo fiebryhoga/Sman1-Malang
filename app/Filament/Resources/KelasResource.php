@@ -28,6 +28,8 @@ class KelasResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-building-library';
     protected static ?string $navigationGroup = 'Data Master';
     protected static ?string $label = 'Kelas';
+        protected static ?string $pluralLabel = 'Daftar Kelas';
+
 
     /**
      * Memperbaiki pengecekan izin untuk melihat daftar resource Kelas.

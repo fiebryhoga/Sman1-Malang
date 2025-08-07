@@ -18,8 +18,10 @@ class MataPelajaranResource extends Resource
     protected static ?string $model = MataPelajaran::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-book-open';
-    protected static ?string $navigationGroup = 'Data Akademik';
+    protected static ?string $navigationGroup = 'Data Master';
     protected static ?string $label = 'Mata Pelajaran';
+        protected static ?string $pluralLabel = 'Mata Pelajaran';
+
 
     public static function canViewAny(): bool
     {

@@ -20,17 +20,19 @@ class RoleResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-finger-print';
     protected static ?string $navigationGroup = 'Admin Management';
-    protected static ?string $label = 'Peran';
+    protected static ?string $label = 'Role';
+        protected static ?string $pluralLabel = 'Hak Akses';
+
+    
+    
 
     public static function canViewAny(): bool
     {
-        // Menggunakan nama permission Bahasa Indonesia
         return auth()->user()->can('melihat_peran');
     }
 
     public static function canCreate(): bool
     {
-        // Menggunakan nama permission Bahasa Indonesia
         return auth()->user()->can('mengelola_peran');
     }
 

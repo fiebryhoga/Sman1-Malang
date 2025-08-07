@@ -26,6 +26,7 @@ class SiswaResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-academic-cap';
     protected static ?string $navigationGroup = 'Data Master';
     protected static ?string $label = 'Siswa';
+    protected static ?string $pluralLabel = 'Daftar Siswa';
 
     public static function canViewAny(): bool
     {

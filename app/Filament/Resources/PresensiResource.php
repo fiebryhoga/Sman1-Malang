@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\HtmlString;
+use Illuminate\Database\Eloquent\Builder;
 
 class PresensiResource extends Resource
 {
@@ -37,19 +38,16 @@ class PresensiResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-qr-code';
     protected static ?string $navigationGroup = 'Akademik';
+    protected static ?string $label = 'Buka Presensi';
 
-    // ... (kode canViewAny, canCreate, canEdit tidak berubah) ...
     public static function canViewAny(): bool
     {
-        if (auth()->user()->hasRole(['Super Admin', 'Guru Wali Kelas', 'Guru Mata Pelajaran'])) {
-            return true;
-        }
-        return auth()->user()->can('melihat_presensi');
+        return auth()->user()->can('melihat_presensi_semua') || auth()->user()->can('melihat_presensi_diampu');
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()->can('mengelola_presensi_diampu') || auth()->user()->can('mengelola_presensi_semua');
+        return auth()->user()->can('mengelola_presensi_diampu');
     }
 
     public static function canEdit(Model $record): bool
@@ -58,6 +56,7 @@ class PresensiResource extends Resource
                (auth()->user()->can('mengelola_presensi_diampu') && $record->guru_id === auth()->id());
     }
 
+    // --- KODE INFOLIST YANG ANDA BERIKAN ADA DI SINI ---
     public static function infolist(Infolist $infolist): Infolist
     {
         return $infolist
@@ -113,8 +112,6 @@ class PresensiResource extends Resource
                                             return "{$record->kelas->nama} - {$record->mataPelajaran->nama}";
                                         })
                                         ->visibleOn('edit'),
-
-                                    // DIKEMBALIKAN KE KODE ASLI ANDA YANG SUDAH BENAR
                                     Select::make('jadwal_id')
                                         ->label('Pilih Kelas & Mata Pelajaran')
                                         ->options(function () {
@@ -126,7 +123,6 @@ class PresensiResource extends Resource
                                             if (!$user->can('mengelola_presensi_semua')) {
                                                 $query->where('kelas_mata_pelajaran.user_id', $user->id);
                                             }
-
                                             $jadwal = $query->select('kelas_mata_pelajaran.id', 'kelas.nama as nama_kelas', 'mata_pelajarans.nama as nama_mapel')->get();
 
                                             return $jadwal->pluck('nama_mapel', 'id')->mapWithKeys(function ($mapel, $id) use ($jadwal) {
@@ -186,7 +182,6 @@ class PresensiResource extends Resource
                                         ])
                                         ->mutateRelationshipDataBeforeCreateUsing(fn (array $data): array => self::prepareDetailPresensiData($data))
                                         ->mutateRelationshipDataBeforeSaveUsing(fn (array $data): array => self::prepareDetailPresensiData($data))
-                                        // PERBAIKAN: Menambahkan data siswa saat form edit dimuat
                                         ->afterStateHydrated(function (array $state, Set $set): void {
                                             $siswaIds = array_column($state, 'siswa_id');
                                             $siswas = Siswa::whereIn('id', $siswaIds)->get()->keyBy('id');
@@ -222,11 +217,9 @@ class PresensiResource extends Resource
             ->columns([
                 TextColumn::make('kelas.nama')->searchable(),
                 TextColumn::make('mataPelajaran.nama')->searchable(),
-                // PERBAIKAN: Menampilkan hari dan tanggal
                 TextColumn::make('tanggal')
                     ->label('Waktu Presensi')
                     ->formatStateUsing(function (Model $record) {
-                        // Pastikan 'tanggal' di-cast sebagai date di Model Presensi
                         return $record->hari . ', ' . $record->tanggal->translatedFormat('d F Y');
                     })
                     ->sortable(),
@@ -237,8 +230,12 @@ class PresensiResource extends Resource
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ])
-            // PERBAIKAN: Mengurutkan data dari yang terbaru
-            ->defaultSort('tanggal', 'desc');
+            ->defaultSort('tanggal', 'desc')
+            ->modifyQueryUsing(function (Builder $query) {
+                if (!auth()->user()->can('melihat_presensi_semua')) {
+                    $query->where('guru_id', auth()->id());
+                }
+            });
     }
 
     public static function getPages(): array

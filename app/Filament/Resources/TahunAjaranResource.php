@@ -22,6 +22,8 @@ class TahunAjaranResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
     protected static ?string $navigationGroup = 'Data Master';
     protected static ?string $label = 'Tahun Ajaran';
+    protected static ?string $pluralLabel = 'Tahun Ajaran';
+
 
     public static function canViewAny(): bool
     {
