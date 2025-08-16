@@ -28,9 +28,9 @@
                 <th colspan="{{ count($dates) + 4 }}" class="school-info" style="border: none;">
                     <b style="font-size: 18px;">DAFTAR KEHADIRAN SISWA</b>
                     <br>
-                    <b style="font-size: 18px;">SMP ISLAM BAITUSSALAM</b>
+                    <b style="font-size: 18px;">SMKN 1 Sukorejo</b>
                     <br>
-                    <span style="font-size: 12px;">Jalan Kebenaran No. 07 Kampung Merdeka, Kabupaten Suryadelima, Jawa Timur</span>
+                    <span style="font-size: 12px;">Jl. Sumbergareng, Krajan, Sukorejo, Kec. Sukorejo, Pasuruan, Jawa Timur 67161</span>
                 </th>
             </tr>
             <tr style="height: 10px;">

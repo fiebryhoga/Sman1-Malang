@@ -26,7 +26,7 @@ class DisciplinaryPointCategoryResource extends Resource
                     ->label('Nama Pelanggaran')
                     ->required()
                     ->unique(ignoreRecord: true)
-                    ->disabledOn('edit'), // Nama tidak bisa diedit
+                    ->disabledOn('edit'), 
                 TextInput::make('points')
                     ->label('Jumlah Poin')
                     ->required()

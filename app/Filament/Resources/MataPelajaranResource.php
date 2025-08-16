@@ -3,8 +3,13 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\MataPelajaranResource\Pages;
-use App\Filament\Resources\MataPelajaranResource\RelationManagers\KelasRelationManager;
 use App\Models\MataPelajaran;
+use App\Models\Kelas;
+use App\Models\User;
+use App\Models\JamPelajaran;
+use App\Models\JadwalMengajar;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -12,6 +17,10 @@ use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Get;
+use Illuminate\Support\Collection;
 
 class MataPelajaranResource extends Resource
 {
@@ -19,9 +28,9 @@ class MataPelajaranResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-book-open';
     protected static ?string $navigationGroup = 'Data Master';
+    
     protected static ?string $label = 'Mata Pelajaran';
-        protected static ?string $pluralLabel = 'Mata Pelajaran';
-
+    protected static ?string $pluralLabel = 'Mata Pelajaran';
 
     public static function canViewAny(): bool
     {
@@ -47,7 +56,55 @@ class MataPelajaranResource extends Resource
     {
         return $form
             ->schema([
-                TextInput::make('nama')->required()->unique(ignoreRecord: true),
+                Section::make('Nama Mata Pelajaran')
+                    ->schema([
+                        TextInput::make('nama')
+                            ->required()
+                            ->maxLength(255),
+                    ]),
+                
+                Section::make('Jadwal Mengajar')
+                    ->schema([
+                        Repeater::make('jadwalMengajar')
+                            ->label(false)
+                            ->relationship('jadwalMengajar')
+                            ->schema([
+                                Select::make('kelas_id')
+                                    ->label('Kelas')
+                                    ->options(
+                                        fn (Get $get, ?Model $record): Collection =>
+                                        Kelas::whereNotIn('id', collect($get('..*.kelas_id'))->filter())->pluck('nama', 'id')
+                                    )
+                                    ->reactive()
+                                    ->required(),
+                                Select::make('user_id')
+                                    ->label('Guru Pengampu')
+                                    ->relationship('guru', 'name')
+                                    ->preload()
+                                    ->searchable()
+                                    ->required(),
+                                Select::make('jamPelajaran')
+                                    ->label('Jam Pelajaran Ke')
+                                    ->relationship('jamPelajaran', 'jam_ke')
+                                    ->multiple()
+                                    ->preload()
+                                    ->required(),
+                            ])
+                            // --- PERBAIKAN DI SINI ---
+                            ->itemLabel(function (array $state): ?string {
+                                $kelasId = $state['kelas_id'] ?? null;
+                                if ($kelasId) {
+                                    $kelas = Kelas::find($kelasId);
+                                    return $kelas ? 'Jadwal untuk ' . $kelas->nama : null;
+                                }
+                                return null;
+                            })
+                            // --- AKHIR PERBAIKAN ---
+                            ->minItems(1)
+                            ->collapsible()
+                            ->defaultItems(1)
+                            ->columns(3),
+                    ]),
             ]);
     }
 
@@ -55,18 +112,24 @@ class MataPelajaranResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('nama')->searchable(),
+                TextColumn::make('nama')->searchable()->sortable(),
+                TextColumn::make('jadwalMengajar.kelas.nama')->label('Kelas')->badge()->sortable(),
+                TextColumn::make('jadwalMengajar.guru.name')->label('Guru Pengampu')->badge()->sortable(),
+                TextColumn::make('jadwalMengajar.jamPelajaran.jam_ke')->label('Jam Ke')->badge()->sortable(),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
+            ])
+            ->filters([
+                //
             ]);
     }
 
     public static function getRelations(): array
     {
         return [
-            KelasRelationManager::class,
+            //
         ];
     }
 
@@ -75,8 +138,8 @@ class MataPelajaranResource extends Resource
         return [
             'index' => Pages\ListMataPelajarans::route('/'),
             'create' => Pages\CreateMataPelajaran::route('/create'),
-            'view' => Pages\ViewMataPelajaran::route('/{record}'),
             'edit' => Pages\EditMataPelajaran::route('/{record}/edit'),
+            'view' => Pages\ViewMataPelajaran::route('/{record}'),
         ];
     }
 }

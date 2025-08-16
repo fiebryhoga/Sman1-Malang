@@ -13,10 +13,8 @@ class TahunAjaranSeeder extends Seeder
      */
     public function run(): void
     {
-        // Hapus data lama untuk menghindari duplikat
         TahunAjaran::query()->delete();
 
-        // Buat satu Tahun Ajaran yang aktif
         TahunAjaran::create([
             'nama' => 'Tahun Ajaran 2025/2026',
             'tanggal_mulai' => '2025-07-01',

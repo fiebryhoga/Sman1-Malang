@@ -3,7 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\PresensiResource\Pages;
-use App\Models\Kelas;
+use App\Models\JadwalMengajar;
 use App\Models\Presensi;
 use App\Models\Siswa;
 use Filament\Forms\Components\DatePicker;
@@ -26,11 +26,10 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\HtmlString;
-use Illuminate\Database\Eloquent\Builder;
 
 class PresensiResource extends Resource
 {
@@ -56,46 +55,6 @@ class PresensiResource extends Resource
                (auth()->user()->can('mengelola_presensi_diampu') && $record->guru_id === auth()->id());
     }
 
-    // --- KODE INFOLIST YANG ANDA BERIKAN ADA DI SINI ---
-    public static function infolist(Infolist $infolist): Infolist
-    {
-        return $infolist
-            ->schema([
-                Infolists\Components\Section::make('Informasi Sesi')
-                    ->schema([
-                        Infolists\Components\TextEntry::make('kelas.nama'),
-                        Infolists\Components\TextEntry::make('mataPelajaran.nama'),
-                        Infolists\Components\TextEntry::make('guru.name')->label('Guru Pengampu'),
-                        Infolists\Components\TextEntry::make('pembuat.name')->label('Dibuat Oleh'),
-                        Infolists\Components\TextEntry::make('tanggal')
-                            ->label('Waktu Presensi')
-                            ->formatStateUsing(fn(Model $record) => $record->hari . ', ' . $record->tanggal->translatedFormat('d F Y')),
-                        Infolists\Components\TextEntry::make('pertemuan_ke'),
-                        Infolists\Components\TextEntry::make('materi')->columnSpanFull(),
-                    ])->columns(3),
-                Infolists\Components\Section::make('Rekap Kehadiran')
-                    ->schema([
-                        Infolists\Components\RepeatableEntry::make('detailPresensi')
-                            ->schema([
-                                Infolists\Components\ImageEntry::make('siswa.foto')->label(false)->circular()->defaultImageUrl(fn ($record): string => 'https://ui-avatars.com/api/?name=' . urlencode($record->siswa->nama_lengkap)),
-                                Infolists\Components\Group::make([
-                                    Infolists\Components\TextEntry::make('siswa.nama_lengkap')->label(false)->weight('medium'),
-                                    Infolists\Components\TextEntry::make('updated_at')->label(false)->dateTime('d/m/Y H:i:s')->size('sm')->color('gray'),
-                                ])->label('Nama Siswa'),
-                                Infolists\Components\TextEntry::make('status')
-                                    ->badge()
-                                    ->color(fn (string $state): string => match ($state) {
-                                        'hadir' => 'success',
-                                        'sakit' => 'warning',
-                                        'izin' => 'info',
-                                        'alpha' => 'danger',
-                                    }),
-                            ])
-                            ->columns(3)->grid(2),
-                    ]),
-            ]);
-    }
-
     public static function form(Form $form): Form
     {
         return $form
@@ -116,27 +75,28 @@ class PresensiResource extends Resource
                                         ->label('Pilih Kelas & Mata Pelajaran')
                                         ->options(function () {
                                             $user = auth()->user();
-                                            $query = DB::table('kelas_mata_pelajaran')
-                                                ->join('kelas', 'kelas_mata_pelajaran.kelas_id', '=', 'kelas.id')
-                                                ->join('mata_pelajarans', 'kelas_mata_pelajaran.mata_pelajaran_id', '=', 'mata_pelajarans.id');
+                                            $query = JadwalMengajar::query()->with(['kelas', 'mataPelajaran', 'jamPelajaran']);
 
                                             if (!$user->can('mengelola_presensi_semua')) {
-                                                $query->where('kelas_mata_pelajaran.user_id', $user->id);
+                                                $query->where('user_id', $user->id);
                                             }
-                                            $jadwal = $query->select('kelas_mata_pelajaran.id', 'kelas.nama as nama_kelas', 'mata_pelajarans.nama as nama_mapel')->get();
 
-                                            return $jadwal->pluck('nama_mapel', 'id')->mapWithKeys(function ($mapel, $id) use ($jadwal) {
-                                                $item = $jadwal->firstWhere('id', $id);
-                                                return [$id => "{$item->nama_kelas} - {$mapel}"];
+                                            $jadwal = $query->get();
+
+                                            return $jadwal->mapWithKeys(function ($item) {
+                                                $jam = $item->jamPelajaran->pluck('jam_ke')->join(', ');
+                                                return [
+                                                    $item->id => "{$item->mataPelajaran->nama} - {$item->kelas->nama} - Jam ke-{$jam}"
+                                                ];
                                             });
                                         })
                                         ->live()
                                         ->required()
                                         ->afterStateUpdated(function (Set $set, $state) {
                                             if (blank($state)) return;
-                                            $jadwal = DB::table('kelas_mata_pelajaran')->find($state);
+                                            $jadwal = JadwalMengajar::find($state);
                                             if (!$jadwal) return;
-                                            $siswas = Kelas::find($jadwal->kelas_id)->siswas;
+                                            $siswas = $jadwal->kelas->siswas;
                                             $detailData = $siswas->map(fn (Siswa $siswa) => [
                                                 'siswa_id' => $siswa->id,
                                                 'nama_siswa' => $siswa->nama_lengkap,
@@ -146,13 +106,21 @@ class PresensiResource extends Resource
                                             $set('detailPresensi', $detailData);
                                         })
                                         ->hiddenOn('edit'),
-                                    
+
                                     DatePicker::make('tanggal')->default(now())->required(),
                                     TextInput::make('pertemuan_ke')->numeric()->required()->label('Pertemuan Ke'),
                                     Textarea::make('materi')->required()->columnSpanFull(),
+                                    
+                                    // ✅ TAMBAHKAN INI (FORM)
+                                    Textarea::make('detail_pembelajaran')
+                                        ->label('Detail Pembelajaran')
+                                        ->nullable() // Opsional, bisa dihapus jika wajib diisi
+                                        ->columnSpanFull(),
+
                                 ])->columns(2),
                         ]),
                     Wizard\Step::make('Absensi Siswa')
+                        // ... (schema absensi siswa tidak berubah)
                         ->schema([
                             Section::make('Daftar Kehadiran Siswa')
                                 ->schema([
@@ -204,6 +172,57 @@ class PresensiResource extends Resource
             ]);
     }
 
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                Infolists\Components\Section::make('Informasi Sesi')
+                    ->schema([
+                        Infolists\Components\TextEntry::make('kelas.nama'),
+                        Infolists\Components\TextEntry::make('mataPelajaran.nama'),
+                        Infolists\Components\TextEntry::make('guru.name')->label('Guru Pengampu'),
+                        Infolists\Components\TextEntry::make('pembuat.name')->label('Dibuat Oleh'),
+                        Infolists\Components\TextEntry::make('tanggal')
+                            ->label('Waktu Presensi')
+                            ->formatStateUsing(fn(Model $record) => $record->hari . ', ' . $record->tanggal->translatedFormat('d F Y')),
+                        Infolists\Components\TextEntry::make('jam_pelajaran_ke')
+                            ->label('Jam Pelajaran Ke')
+                            ->getStateUsing(fn (Model $record) => $record->jadwalMengajar?->jamPelajaran?->pluck('jam_ke')?->join(', ') ?? '-'),
+                        Infolists\Components\TextEntry::make('pertemuan_ke'),
+                        Infolists\Components\TextEntry::make('materi')->columnSpanFull(),
+                        
+                        // ✅ TAMBAHKAN INI (INfolist)
+                        Infolists\Components\TextEntry::make('detail_pembelajaran')
+                            ->label('Detail Pembelajaran')
+                            ->columnSpanFull()
+                            ->markdown(), // Menggunakan markdown untuk tampilan yang lebih baik
+
+                    ])->columns(3),
+                Infolists\Components\Section::make('Rekap Kehadiran')
+                    // ... (schema rekap kehadiran tidak berubah)
+                    ->schema([
+                        Infolists\Components\RepeatableEntry::make('detailPresensi')
+                            ->schema([
+                                Infolists\Components\ImageEntry::make('siswa.foto')->label(false)->circular()->defaultImageUrl(fn ($record): string => 'https://ui-avatars.com/api/?name=' . urlencode($record->siswa->nama_lengkap)),
+                                Infolists\Components\Group::make([
+                                    Infolists\Components\TextEntry::make('siswa.nama_lengkap')->label(false)->weight('medium'),
+                                    Infolists\Components\TextEntry::make('updated_at')->label(false)->dateTime('d/m/Y H:i:s')->size('sm')->color('gray'),
+                                ])->label('Nama Siswa'),
+                                Infolists\Components\TextEntry::make('status')
+                                    ->badge()
+                                    ->color(fn (string $state): string => match ($state) {
+                                        'hadir' => 'success',
+                                        'sakit' => 'warning',
+                                        'izin' => 'info',
+                                        'alpha' => 'danger',
+                                    }),
+                            ])
+                            ->columns(3)->grid(2),
+                    ]),
+            ]);
+    }
+    
+    // ... (sisa file tidak perlu diubah)
     protected static function prepareDetailPresensiData(array $data): array
     {
         $data['status'] = $data['is_hadir'] ? 'hadir' : ($data['status'] ?? 'alpha');

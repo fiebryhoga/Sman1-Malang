@@ -2,20 +2,15 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ExcelExportController;
-
+use App\Http\Controllers\HomeController; // <-- 1. Tambahkan import ini
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
-});
+// 2. Ganti rute ini untuk menunjuk ke HomeController
+Route::get('/', [HomeController::class, 'index']);
 
+// Rute-rute lain tetap sama
 Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
@@ -27,7 +22,5 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__.'/auth.php';
-
-
 
 Route::get('/excel/export', [ExcelExportController::class, 'export'])->name('excel.export');

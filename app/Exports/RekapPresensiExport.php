@@ -48,7 +48,6 @@ class RekapPresensiExport implements WithMultipleSheets
             $query->whereDate('tanggal', '<=', $this->filters['tanggal_selesai']);
         }
 
-        // Ambil semua kombinasi kelas, tahun, dan bulan yang unik
         $combinations = $query->selectRaw('DISTINCT kelas_id, YEAR(tanggal) as year, MONTH(tanggal) as month')
                               ->orderBy('kelas_id')
                               ->orderBy('year')

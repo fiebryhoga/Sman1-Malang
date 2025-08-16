@@ -13,7 +13,6 @@ class SiswaSeeder extends Seeder
      */
     public function run(): void
     {
-        // Hapus data lama untuk menghindari duplikat
         Siswa::query()->delete();
 
         $namaSiswaList = [
@@ -40,30 +39,28 @@ class SiswaSeeder extends Seeder
             'Inul Daratista', 'Jenita Janet', 'Keisya Levronka', 'Lyodra Ginting', 'Marion Jola', 'Novia Bachmid', 'Putri Delina', 'Rossa', 'Syahrini', 'Tiara Andini'
         ];
 
-        // Acak urutan nama agar distribusi lebih random
         shuffle($namaSiswaList);
 
         $semuaKelas = Kelas::all();
         $studentCounter = 0;
 
         if ($semuaKelas->isEmpty()) {
-            return; // Hentikan jika tidak ada kelas
+            return;
         }
 
         foreach ($semuaKelas as $kelas) {
             for ($i = 0; $i < 20; $i++) {
-                if ($studentCounter >= count($namaSiswaList)) break; // Berhenti jika nama sudah habis
+                if ($studentCounter >= count($namaSiswaList)) break; 
 
                 $namaSiswa = $namaSiswaList[$studentCounter];
                 $jenisKelamin = ($studentCounter < 100) ? 'L' : 'P';
 
-                // Membuat NIS unik yang hanya terdiri dari angka
-                // Contoh: 25260001, 25260002, dst.
+                
                 $nisSiswa = 25260001 + $studentCounter;
 
                 Siswa::create([
                     'kelas_id' => $kelas->id,
-                    'nis' => (string)$nisSiswa, // Pastikan dikirim sebagai string
+                    'nis' => (string)$nisSiswa,
                     'nama_lengkap' => $namaSiswa,
                     'jenis_kelamin' => $jenisKelamin,
                 ]);

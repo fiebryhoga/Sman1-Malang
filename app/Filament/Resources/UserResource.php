@@ -29,7 +29,6 @@ class UserResource extends Resource
 
     public static function canViewAny(): bool
     {
-        // Menggunakan nama permission Bahasa Indonesia
         return auth()->user()->can('melihat_pengguna');
     }
 

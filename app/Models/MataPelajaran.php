@@ -19,4 +19,11 @@ class MataPelajaran extends Model
                     ->withPivot('user_id') // Ini penting untuk mengambil ID guru pengampu
                     ->withTimestamps();
     }
+
+
+
+    public function jadwalMengajar()
+    {
+        return $this->hasMany(JadwalMengajar::class);
+    }
 }

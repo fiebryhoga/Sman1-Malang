@@ -11,7 +11,6 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        // Buat Super Admin
         $superAdmin = User::firstOrCreate(
             ['email' => 'superadmin@sekolah.app'],
             [
@@ -21,7 +20,6 @@ class UserSeeder extends Seeder
         );
         $superAdmin->assignRole('Super Admin');
 
-        // Buat Wali Kelas
         $waliKelasUser = User::firstOrCreate(
             ['email' => 'wali@sekolah.app'],
             [
@@ -40,9 +38,8 @@ class UserSeeder extends Seeder
                     'password' => Hash::make('password'),
                 ]
             );
-            $guruMapel->assignRole('Guru Mata Pelajaran'); // Pastikan role ini ada
+            $guruMapel->assignRole('Guru Mata Pelajaran'); 
 
-        // Tugaskan user tersebut sebagai wali di kelas pertama yang ditemukan
         $kelasPertama = Kelas::first();
         if ($kelasPertama) {
             $kelasPertama->update(['wali_kelas_id' => $waliKelasUser->id]);

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Presensi extends Model
 {
@@ -32,6 +33,19 @@ class Presensi extends Model
     {
         return $this->belongsTo(Kelas::class);
     }
+
+
+
+    
+
+
+
+    // --- TAMBAHKAN RELASI KE JADWAL MENGAJAR ---
+    public function jadwalMengajar(): BelongsTo
+    {
+        return $this->belongsTo(JadwalMengajar::class, 'jadwal_id');
+    }
+    // --- AKHIR PENAMBAHAN ---
 
     public function mataPelajaran()
     {

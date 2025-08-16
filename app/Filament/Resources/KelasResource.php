@@ -31,19 +31,13 @@ class KelasResource extends Resource
         protected static ?string $pluralLabel = 'Daftar Kelas';
 
 
-    /**
-     * Memperbaiki pengecekan izin untuk melihat daftar resource Kelas.
-     * Menggunakan izin 'melihat_kelas' yang sudah didefinisikan di seeder.
-     */
+    
     public static function canViewAny(): bool
     {
         return auth()->user()->can('melihat_kelas');
     }
 
-    /**
-     * Memperbaiki pengecekan izin untuk melihat detail satu record Kelas.
-     * Ini juga akan mengontrol akses ke Relation Manager seperti SiswasRelationManager.
-     */
+    
     public static function canView(Model $record): bool
     {
         return auth()->user()->can('melihat_kelas');
