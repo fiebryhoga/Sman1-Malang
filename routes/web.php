@@ -23,4 +23,19 @@ Route::middleware('auth')->group(function () {
 
 require __DIR__.'/auth.php';
 
-Route::get('/excel/export', [ExcelExportController::class, 'export'])->name('excel.export');
+// Route::get('/excel/export', [ExcelExportController::class, 'export'])->name('excel.export');
+
+
+Route::get('/rekap-presensi/export', [ExcelExportController::class, 'exportRekapPresensi'])
+    ->name('presensi.export_rekap')
+    ->middleware('auth');
+
+
+
+Route::get('/jurnal-guru/export', [ExcelExportController::class, 'exportJurnalGuru'])
+    ->name('presensi.export_jurnal')
+    ->middleware('auth');
+
+
+
+    

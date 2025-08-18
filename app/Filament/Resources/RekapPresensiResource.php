@@ -16,6 +16,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use App\Filament\Resources\PresensiResource; // ✅ 1. Tambahkan ini
 
 class RekapPresensiResource extends Resource
 {
@@ -27,14 +28,21 @@ class RekapPresensiResource extends Resource
     protected static bool $shouldRegisterNavigation = true;
 
     public static function canCreate(): bool { return false; }
-    public static function canEdit(Model $record): bool { return auth()->user()->can('mengelola_presensi_semua'); }
+
+    // ✅ 2. Sesuaikan izin edit di sini agar cocok dengan PresensiResource
+    public static function canEdit(Model $record): bool
+    {
+        return auth()->user()->can('mengelola_presensi_semua') ||
+               (auth()->user()->can('mengelola_presensi_diampu') && $record->guru_id === auth()->id());
+    }
+    
     public static function canDelete(Model $record): bool { return auth()->user()->can('mengelola_presensi_semua'); }
     public static function canView(Model $record): bool { return auth()->user()->can('melihat_presensi_semua'); }
     public static function canViewAny(): bool { return auth()->user()->can('melihat_presensi_semua'); }
 
     public static function form(Form $form): Form
     {
-        return $form->schema([]);
+        return $form->schema([]); // Biarkan kosong
     }
 
     public static function getEloquentQuery(): Builder
@@ -63,7 +71,6 @@ class RekapPresensiResource extends Resource
                 TextColumn::make('alpha_count')->label('Alpha'),
             ])
             ->filters([
-                // ✅ KEMBALI KE KONSEP NORMAL: Filter didefinisikan satu per satu
                 SelectFilter::make('kelas_id')
                     ->label('Kelas')
                     ->relationship('kelas', 'nama')
@@ -78,7 +85,6 @@ class RekapPresensiResource extends Resource
 
                 Filter::make('tanggal')
                     ->form([
-                        // Grid dihapus agar kembali ke tumpukan vertikal
                         DatePicker::make('tanggal_mulai')->label('Dari Tanggal'),
                         DatePicker::make('tanggal_selesai')->label('Sampai Tanggal'),
                     ])
@@ -90,8 +96,11 @@ class RekapPresensiResource extends Resource
 
             ], layout: FiltersLayout::AboveContent)
             ->actions([
-                ViewAction::make()->visible(fn (Model $record): bool => auth()->user()->can('melihat_presensi_semua')),
-                EditAction::make()->visible(fn (Model $record): bool => auth()->user()->can('mengelola_presensi_semua')),
+                ViewAction::make()->url(fn (Model $record): string => PresensiResource::getUrl('view', ['record' => $record])),
+                
+                // ✅ 3. Modifikasi EditAction agar mengarah ke URL PresensiResource
+                EditAction::make()
+                    ->url(fn (Model $record): string => PresensiResource::getUrl('edit', ['record' => $record])),
             ])
             ->defaultSort('tanggal', 'desc');
     }

@@ -14,9 +14,7 @@ class ListRekapPresensis extends ListRecords
     protected function getTableQuery(): ?Builder
     {
         $query = parent::getTableQuery();
-        if (!$query) {
-            return null;
-        }
+        if (!$query) { return null; }
 
         $kelasId = $this->tableFilters['kelas_id']['value'] ?? null;
         $mapelId = $this->tableFilters['mata_pelajaran_id']['value'] ?? null;
@@ -24,7 +22,6 @@ class ListRekapPresensis extends ListRecords
         if (empty($kelasId) || empty($mapelId)) {
             return $query->whereRaw('0 = 1');
         }
-
         return $query;
     }
 
@@ -32,27 +29,19 @@ class ListRekapPresensis extends ListRecords
     {
         $kelasId = $this->tableFilters['kelas_id']['value'] ?? null;
         $mapelId = $this->tableFilters['mata_pelajaran_id']['value'] ?? null;
-
-        if (empty($kelasId)) {
-            return 'Silakan Pilih Kelas Terlebih Dahulu';
+        if (empty($kelasId) || empty($mapelId)) {
+            return 'Silakan Pilih Kelas dan Mata Pelajaran';
         }
-
-        if (empty($mapelId)) {
-            return 'Silakan Pilih Mata Pelajaran';
-        }
-
-        return 'Tidak Ada Data Ditemukan';
+        return 'Tidak ada data rekap presensi ditemukan';
     }
-
+    
     protected function getEmptyStateDescription(): ?string
     {
         $kelasId = $this->tableFilters['kelas_id']['value'] ?? null;
         $mapelId = $this->tableFilters['mata_pelajaran_id']['value'] ?? null;
-
         if (empty($kelasId) || empty($mapelId)) {
-            return 'Data rekap presensi akan ditampilkan setelah filter utama dipilih.';
+            return 'Data akan ditampilkan setelah Anda memilih filter yang diperlukan.';
         }
-
         return null;
     }
 
@@ -60,19 +49,29 @@ class ListRekapPresensis extends ListRecords
     {
         return [
             Action::make('download_excel')
-                ->label('Download Excel')
-                ->icon('heroicon-o-arrow-down-tray')
-                ->url(function () {
-                    $filters = $this->tableFilters;
-                    $queryString = http_build_query($filters);
-                    return route('excel.export', ['filters' => $queryString]);
-                })
+                ->label('Download Rekap Siswa')
+                ->icon('heroicon-o-users')
+                ->color('primary')
+                ->url(fn (): string => route('presensi.export_rekap', ['filters' => $this->tableFilters]))
                 ->disabled(function () {
                     $kelasId = $this->tableFilters['kelas_id']['value'] ?? null;
                     $mapelId = $this->tableFilters['mata_pelajaran_id']['value'] ?? null;
                     return empty($kelasId) || empty($mapelId);
                 })
                 ->openUrlInNewTab(),
+
+            Action::make('download_jurnal')
+                ->label('Download Jurnal Guru')
+                ->icon('heroicon-o-book-open')
+                ->color('success')
+                ->url(fn (): string => route('presensi.export_jurnal', ['filters' => $this->tableFilters]))
+                ->disabled(function () {
+                    $kelasId = $this->tableFilters['kelas_id']['value'] ?? null;
+                    $mapelId = $this->tableFilters['mata_pelajaran_id']['value'] ?? null;
+                    return empty($kelasId) || empty($mapelId);
+                })
+                ->openUrlInNewTab(),
+            
         ];
     }
 }

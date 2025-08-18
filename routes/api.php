@@ -3,7 +3,10 @@
 use App\Http\Controllers\Api\PresensiApiController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\BaileysWebhookController; // Tambahkan ini
+use App\Http\Controllers\Api\BaileysWebhookController; 
+
+use App\Http\Controllers\Api\ApiPresensiController; 
+
 
 
 
@@ -21,3 +24,7 @@ Route::post('/disciplinary-notification', [DisciplinaryPointController::class, '
 
 // Nonaktifkan rute Fonte jika sudah tidak digunakan
 // Route::match(['get', 'post'], '/webhook/fonte', [FonteWebhookController::class, 'handle']);
+
+
+
+Route::post('/presensi/check-in', [ApiPresensiController::class, 'checkIn']);

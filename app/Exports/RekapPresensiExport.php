@@ -2,67 +2,147 @@
 
 namespace App\Exports;
 
-use App\Models\Presensi;
-use App\Models\Kelas;
-use Maatwebsite\Excel\Concerns\Exportable;
-use Maatwebsite\Excel\Concerns\WithMultipleSheets;
-use App\Exports\MonthlyPresensiSheet;
+use Illuminate\Contracts\View\View;
+use Maatwebsite\Excel\Concerns\FromView;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 
-class RekapPresensiExport implements WithMultipleSheets
+class RekapPresensiExport implements FromView, WithEvents
 {
-    use Exportable;
+    protected $siswas;
+    protected $presensis;
+    protected $rekapData;
+    protected $rekapPerSiswa;
+    protected $namaKelas;
+    protected $namaMapel;
+    protected $bulan;
+    protected $namaGuru;
 
-    private $filters;
-
-    public function __construct(array $filters)
+    public function __construct($siswas, $presensis, $rekapData, $rekapPerSiswa, $namaKelas, $namaMapel, $bulan, $namaGuru)
     {
-        $this->filters = $filters;
+        $this->siswas = $siswas;
+        $this->presensis = $presensis;
+        $this->rekapData = $rekapData;
+        $this->rekapPerSiswa = $rekapPerSiswa;
+        $this->namaKelas = $namaKelas;
+        $this->namaMapel = $namaMapel;
+        $this->bulan = $bulan;
+        $this->namaGuru = $namaGuru;
     }
 
-    public function sheets(): array
+    public function view(): View
     {
-        $sheets = [];
-        
-        $query = Presensi::query();
-        
-        // Terapkan filter yang ada
-        if (isset($this->filters['kelas_id'])) {
-            $query->where('kelas_id', $this->filters['kelas_id']);
-        }
-        if (isset($this->filters['mata_pelajaran_id'])) {
-            $query->where('mata_pelajaran_id', $this->filters['mata_pelajaran_id']);
-        }
-        if (isset($this->filters['guru_id'])) {
-            $query->where('guru_id', $this->filters['guru_id']);
-        }
-        if (isset($this->filters['tahun'])) {
-            $query->whereYear('tanggal', $this->filters['tahun']);
-        }
-        if (isset($this->filters['bulan'])) {
-            $query->whereMonth('tanggal', $this->filters['bulan']);
-        }
-        if (isset($this->filters['tanggal_mulai'])) {
-            $query->whereDate('tanggal', '>=', $this->filters['tanggal_mulai']);
-        }
-        if (isset($this->filters['tanggal_selesai'])) {
-            $query->whereDate('tanggal', '<=', $this->filters['tanggal_selesai']);
-        }
+        return view('exports.rekap-presensi', [
+            'siswas' => $this->siswas,
+            'presensis' => $this->presensis,
+            'rekapData' => $this->rekapData,
+            'rekapPerSiswa' => $this->rekapPerSiswa,
+            'namaKelas' => $this->namaKelas,
+            'namaMapel' => $this->namaMapel,
+            'bulan' => $this->bulan,
+            'namaGuru' => $this->namaGuru,
+        ]);
+    }
 
-        $combinations = $query->selectRaw('DISTINCT kelas_id, YEAR(tanggal) as year, MONTH(tanggal) as month')
-                              ->orderBy('kelas_id')
-                              ->orderBy('year')
-                              ->orderBy('month')
-                              ->get();
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function(AfterSheet $event) {
+                $sheet = $event->sheet;
+                $startRow = 8;
+                $startColumnIndex = 4; // Kolom 'D'
+                
+                // Mengatur lebar kolom
+                $sheet->getColumnDimension('A')->setWidth(5);
+                $sheet->getColumnDimension('B')->setWidth(30);
+                $sheet->getColumnDimension('C')->setWidth(5);
+                for ($i = 0; $i < $this->presensis->count(); $i++) {
+                    $currentColumnLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($startColumnIndex + $i);
+                    $sheet->getColumnDimension($currentColumnLetter)->setWidth(10);
+                }
+                $lastDateColumnIndex = $startColumnIndex + $this->presensis->count() - 1;
+                $keteranganStartColumn = $lastDateColumnIndex + 1;
+                $keteranganStartLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($keteranganStartColumn);
+                $sheet->getColumnDimension($keteranganStartLetter)->setWidth(5);
+                $sheet->getColumnDimension(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($keteranganStartColumn + 1))->setWidth(5);
+                $sheet->getColumnDimension(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($keteranganStartColumn + 2))->setWidth(5);
+                $sheet->getColumnDimension(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($keteranganStartColumn + 3))->setWidth(5);
 
-        foreach ($combinations as $combination) {
-            $sheets[] = new MonthlyPresensiSheet(
-                $this->filters,
-                $combination->kelas_id,
-                $combination->year,
-                $combination->month
-            );
-        }
+                // Style untuk header tabel
+                $sheet->getStyle('A6:Z7')->getFont()->setBold(true);
+                $sheet->getStyle('A6:Z7')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('F2F2F2');
+                
+                // Atur alignment header "Tanggal" dan "Keterangan" ke tengah
+                $sheet->getStyle('D6')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+                $sheet->getStyle($keteranganStartLetter.'6')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+                
+                // Atur header tanggal menjadi vertikal & di tengah
+                $dateHeaderRow = 7;
+                $sheet->getRowDimension($dateHeaderRow)->setRowHeight(75);
+                for ($i = 0; $i < $this->presensis->count(); $i++) {
+                    $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($startColumnIndex + $i);
+                    $sheet->getStyle($colLetter . $dateHeaderRow)->getAlignment()->setTextRotation(90)->setVertical(Alignment::VERTICAL_CENTER)->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                }
 
-        return $sheets;
+                // Atur alignment untuk seluruh kolom keterangan
+                $lastStudentRow = $startRow + $this->siswas->count() - 1;
+                $keteranganEndLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($keteranganStartColumn + 3);
+                $keteranganRange = $keteranganStartLetter . '7:' . $keteranganEndLetter . $lastStudentRow;
+                $sheet->getStyle($keteranganRange)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                
+                // Loop untuk mewarnai sel status
+                foreach ($this->siswas as $rowIndex => $siswa) {
+                    $colIndex = 3; 
+                    foreach ($this->presensis as $presensi) {
+                        $colIndex++;
+                        $cellCoordinate = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex) . ($startRow + $rowIndex);
+                        $sheet->getStyle($cellCoordinate)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                        $status = $this->rekapData[$siswa->id][$presensi->tanggal->format('Y-m-d')] ?? 'A';
+                        $color = '';
+                        switch ($status) {
+                            case 'H': $color = 'D4EDDA'; break;
+                            case 'S': $color = 'FFF3CD'; break;
+                            case 'I': $color = 'D1ECF1'; break;
+                            case 'A': $color = 'F8D7DA'; break;
+                        }
+                        if ($color) {
+                            $sheet->getStyle($cellCoordinate)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB($color);
+                        }
+                    }
+                }
+
+                // Hapus styling untuk baris materi dan atur untuk detail pembelajaran
+                $detailRowNumber = $startRow + $this->siswas->count();
+                $sheet->getStyle('A'.$detailRowNumber.':C'.$detailRowNumber)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT)->setVertical(Alignment::VERTICAL_CENTER);
+                $sheet->getRowDimension($detailRowNumber)->setRowHeight(150);
+                for ($i = 0; $i < $this->presensis->count(); $i++) {
+                    $currentColumnLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($startColumnIndex + $i);
+                    $sheet->getStyle($currentColumnLetter . $detailRowNumber)->getAlignment()
+                        ->setTextRotation(90)
+                        ->setWrapText(true)
+                        ->setVertical(Alignment::VERTICAL_CENTER)
+                        ->setHorizontal(Alignment::HORIZONTAL_CENTER)
+                        ->setIndent(1);
+                }
+                
+                // ✅ PERUBAHAN: Menambahkan border hitam ke seluruh tabel utama
+                $lastColumnLetter = $keteranganEndLetter;
+                $lastRowNumber = $detailRowNumber;
+                $fullTableRange = 'A6:' . $lastColumnLetter . $lastRowNumber;
+                $styleArray = [
+                    'borders' => [
+                        'allBorders' => [
+                            'borderStyle' => Border::BORDER_THIN,
+                            'color' => ['argb' => '00000000'],
+                        ],
+                    ],
+                ];
+                $sheet->getStyle($fullTableRange)->applyFromArray($styleArray);
+
+            },
+        ];
     }
 }

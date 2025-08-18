@@ -19,11 +19,12 @@ class PermissionsSeeder extends Seeder
             'melihat_kelas', 'mengelola_kelas',
             'melihat_siswa', 'mengelola_siswa',
             'melihat_mata_pelajaran', 'mengelola_mata_pelajaran',
-            // PERBAIKAN: Hak akses presensi yang lebih spesifik
+            // Hak akses presensi mapel
             'melihat_presensi_diampu',
             'mengelola_presensi_diampu',
             'melihat_presensi_semua',
             'mengelola_presensi_semua',
+            'mengelola presensi harian',
         ];
 
         foreach ($permissions as $permission) {
