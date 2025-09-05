@@ -5,6 +5,8 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\PelanggaranRecordResource\Pages;
 use App\Models\Pelanggaran;
 use App\Models\PelanggaranRecord;
+use App\Models\Siswa;
+use Filament\Forms\Components\DatePicker; 
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -17,6 +19,7 @@ use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -30,7 +33,7 @@ class PelanggaranRecordResource extends Resource
     protected static ?string $label = 'Catatan Pelanggaran';
     protected static ?string $pluralLabel = 'Catatan Pelanggaran';
 
-    // ... (method can... tidak berubah) ...
+    // ... (method can... dan form() tidak berubah) ...
     public static function canViewAny(): bool { return auth()->user()->can('mengelola_pelanggaran'); }
     public static function canCreate(): bool { return auth()->user()->can('mengelola_pelanggaran'); }
     public static function canEdit(Model $record): bool { return auth()->user()->can('mengelola_pelanggaran'); }
@@ -42,7 +45,14 @@ class PelanggaranRecordResource extends Resource
             ->schema([
                 Section::make('Input Pelanggaran Siswa')->schema([
                     Select::make('siswa_id')
-                        ->relationship('siswa', 'nama_lengkap')
+                        ->label('Siswa')
+                        ->options(
+                            Siswa::with('kelas')->get()->mapWithKeys(function ($siswa) {
+                                $kelasNama = $siswa->kelas->nama ?? 'Tanpa Kelas';
+                                $label = "{$siswa->nis} - {$siswa->nama_lengkap} - {$kelasNama}";
+                                return [$siswa->id => $label];
+                            })
+                        )
                         ->searchable()
                         ->preload()
                         ->required(),
@@ -62,34 +72,47 @@ class PelanggaranRecordResource extends Resource
                         ->label('Foto Bukti (Opsional)')
                         ->image()
                         ->directory('bukti-pelanggaran')
-                        ->imageEditor()
-                        ->disk('public'),
-
+                        ->imageEditor(),
                 ])->columns(2),
             ]);
     }
+
 
     public static function table(Table $table): Table
     {
         return $table
             ->columns([
-                TextColumn::make('siswa.nama_lengkap')->searchable()->sortable(),
-                TextColumn::make('pelanggaran.kode')->label('Kode')->sortable(),
+                TextColumn::make('siswa.nis')->label('NIS')->searchable()->sortable(),
+                TextColumn::make('siswa.nama_lengkap')->label('Nama Siswa')->searchable()->sortable(),
+                TextColumn::make('siswa.kelas.nama')->label('Kelas')->searchable()->sortable(),
                 TextColumn::make('pelanggaran.deskripsi')->label('Pelanggaran')->searchable()->limit(50),
-                TextColumn::make('user.name')->label('Dicatat Oleh')->sortable(),
-                
-                // ✅ 3. Ubah format tanggal di tabel
-                TextColumn::make('created_at')
-                    ->label('Tanggal Dicatat')
-                    ->formatStateUsing(fn ($state) => \Carbon\Carbon::parse($state)->translatedFormat('l, d F Y H:i'))
-                    ->sortable(),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('siswa_id')
-                    ->label('Filter Siswa')
-                    ->relationship('siswa', 'nama_lengkap')
+                // ✅ FILTER KELAS
+                Tables\Filters\SelectFilter::make('kelas')
+                    ->label('Filter Kelas')
+                    ->relationship('siswa.kelas', 'nama')
                     ->searchable()
                     ->preload(),
+                
+                // ✅ FILTER PELANGGARAN
+                Tables\Filters\SelectFilter::make('pelanggaran_id')
+                    ->label('Filter Pelanggaran')
+                    ->relationship('pelanggaran', 'deskripsi')
+                    ->searchable()
+                    ->preload(),
+
+                // ✅ FILTER TANGGAL
+                Filter::make('created_at')
+                    ->form([
+                        DatePicker::make('created_from')->label('Dicatat Dari Tanggal'),
+                        DatePicker::make('created_until')->label('Dicatat Sampai Tanggal'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when($data['created_from'], fn (Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date))
+                            ->when($data['created_until'], fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date));
+                    })
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
@@ -104,6 +127,7 @@ class PelanggaranRecordResource extends Resource
             ->defaultSort('created_at', 'desc');
     }
 
+    // ... (method infolist, getEloquentQuery, getRelations, dan getPages() tidak berubah) ...
     public static function infolist(Infolist $infolist): Infolist
     {
         return $infolist->schema([
@@ -116,19 +140,14 @@ class PelanggaranRecordResource extends Resource
                     TextEntry::make('catatan')->columnSpanFull(),
                     ImageEntry::make('photo')->label('Foto Bukti')->width(200)->disk('public'),
                     TextEntry::make('user.name')->label('Dicatat Oleh'),
-                    
-                    // ✅ 4. Ubah format tanggal di halaman detail
-                    TextEntry::make('created_at')
-                        ->label('Waktu Dicatat')
-                        ->formatStateUsing(fn ($state) => \Carbon\Carbon::parse($state)->translatedFormat('l, d F Y H:i')),
+                    TextEntry::make('created_at')->label('Waktu Dicatat')->dateTime('l, d F Y H:i'),
                 ])->columns(2),
         ]);
     }
-    
-    // ... (sisa file tidak berubah) ...
+
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['siswa', 'pelanggaran', 'user']);
+        return parent::getEloquentQuery()->with(['siswa.kelas', 'pelanggaran', 'user']);
     }
 
     public static function getRelations(): array
