@@ -37,7 +37,9 @@ class PresensiResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-qr-code';
     protected static ?string $navigationGroup = 'Akademik';
-    protected static ?string $label = 'Buka Presensi';
+    protected static ?string $label = 'Presensi Mata Pelajaran';
+        protected static ?string $pluralLabel = 'Presensi Mata Pelajaran';
+
 
     public static function canViewAny(): bool
     {

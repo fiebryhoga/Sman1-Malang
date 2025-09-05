@@ -14,26 +14,33 @@ class KelasSeeder extends Seeder
      */
     public function run(): void
     {
-        // Hapus data lama untuk menghindari duplikat
+        // Hapus data lama untuk menghindari duplikat saat seeder dijalankan ulang
         Kelas::query()->delete();
 
-        // Ambil tahun ajaran yang aktif
+        // Ambil tahun ajaran yang aktif, pastikan ada data tahun ajaran aktif
         $tahunAjaran = TahunAjaran::where('is_active', true)->first();
-
-        // Definisikan 10 kelas dengan format yang diinginkan
-        $daftarKelas = [
-            'X - TKJ - A', 'X - TKJ - B',
-            'X - RPL - A', 'XI - RPL - B',
-            'XI - MM - A', 'XI - MM - B',
-            'XII - TKJ - A', 'XII - TKJ - B',
-            'XII - RPL - A', 'XII - MM - A'
-        ];
-
-        foreach ($daftarKelas as $namaKelas) {
-            Kelas::create([
-                'nama' => $namaKelas,
-                'tahun_ajaran_id' => $tahunAjaran->id,
-            ]);
+        if (!$tahunAjaran) {
+            $this->command->error('Tidak ada Tahun Ajaran yang aktif. Silakan aktifkan satu terlebih dahulu.');
+            return;
         }
+
+        // Definisikan tingkatan kelas dan abjad
+        $tingkatan = ['X', 'XI', 'XII'];
+        $abjad = range('A', 'K'); // Membuat array dari 'A' sampai 'K'
+
+        // Loop untuk membuat kelas secara otomatis
+        foreach ($tingkatan as $tingkat) {
+            foreach ($abjad as $huruf) {
+                // Gabungkan untuk membuat nama kelas, contoh: "X - A", "XI - K"
+                $namaKelas = $tingkat . ' - ' . $huruf;
+
+                Kelas::create([
+                    'nama' => $namaKelas,
+                    'tahun_ajaran_id' => $tahunAjaran->id,
+                ]);
+            }
+        }
+        
+        $this->command->info('Seeder Kelas berhasil dijalankan.');
     }
 }

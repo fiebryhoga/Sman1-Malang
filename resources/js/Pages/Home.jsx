@@ -34,13 +34,13 @@ const Home = () => {
                     <div className="mx-auto h-full max-w-2xl lg:mx-0 lg:flex flex-col  lg:order-2 justify-center items-start">
                         <div className="flex">
                             <div className="relative rounded-full px-3 py-1 text-sm leading-6 text-gray-500 ring-1 ring-gray-900/10 hover:ring-gray-900/20">
-                                SMKN 1 Sukorejo
+                                SMAN 1 Malang
                             </div>
                         </div>
                         <h2
                             className="mt-10 text-3xl font-bold tracking-tight text-blue-900/100 sm:text-6xl"
                         >
-                            Manajemen Presensi & Poin Siswa
+                            Manajemen Presensi & Pelanggaran Siswa
                         </h2>
                         <p className="mt-6 text-sm md:text-lg md:leading-8 text-gray-600">
                             SIMAPRES adalah solusi digital terintegrasi untuk

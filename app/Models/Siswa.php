@@ -26,16 +26,22 @@ class Siswa extends Model
 
 
 
-    public function disciplinaryPointRecords()
+    // public function pelanggaranRecords()
+    // {
+    //     return $this->hasMany(PelanggaranRecord::class);
+    // }
+
+    public function pelanggaranRecords(): HasMany
     {
-        return $this->hasMany(DisciplinaryPointRecord::class);
+        return $this->hasMany(PelanggaranRecord::class);
     }
 
-    // Accessor untuk menghitung total poin kedisiplinan
-    public function getDisciplinaryPointsAttribute()
-    {
-        return $this->disciplinaryPointRecords()
-                    ->join('disciplinary_point_categories', 'disciplinary_point_records.disciplinary_point_category_id', '=', 'disciplinary_point_categories.id')
-                    ->sum('disciplinary_point_categories.points');
-    }
+
+    // // Accessor untuk menghitung total poin kedisiplinan
+    // public function getDisciplinaryPointsAttribute()
+    // {
+    //     return $this->disciplinaryPointRecords()
+    //                 ->join('disciplinary_point_categories', 'disciplinary_point_records.disciplinary_point_category_id', '=', 'disciplinary_point_categories.id')
+    //                 ->sum('disciplinary_point_categories.points');
+    // }
 }
