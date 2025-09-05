@@ -25,7 +25,8 @@ class PermissionsSeeder extends Seeder
             'melihat_presensi_semua',
             'mengelola_presensi_semua',
             'mengelola presensi harian',
-            'mengelola_pelanggaran', 
+            'mengelola_pelanggaran',
+            'mengelola jenis pelanggaran',
         ];
 
         foreach ($permissions as $permission) {

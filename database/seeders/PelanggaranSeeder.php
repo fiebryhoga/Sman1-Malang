@@ -9,10 +9,11 @@ class PelanggaranSeeder extends Seeder
 {
     public function run(): void
     {
-        Pelanggaran::query()->delete();
+        // Data awal tidak perlu dihapus karena updateOrCreate akan menanganinya
+        // Pelanggaran::query()->delete(); 
 
         $pelanggarans = [
-            // Grup A
+            // ... (daftar pelanggaran Anda tidak berubah)
             ['grup' => 'A', 'kode' => 'A1', 'deskripsi' => 'Datang terlambat'],
             ['grup' => 'A', 'kode' => 'A2', 'deskripsi' => 'Atribut tidak lengkap'],
             ['grup' => 'A', 'kode' => 'A3', 'deskripsi' => 'Seragam tidak sesuai (termasuk sepatu)'],
@@ -20,7 +21,6 @@ class PelanggaranSeeder extends Seeder
             ['grup' => 'A', 'kode' => 'A5', 'deskripsi' => 'Rambut gondrong/tidak rapi/disemir'],
             ['grup' => 'A', 'kode' => 'A6', 'deskripsi' => 'Berada di luar kelas tanpa izin pada jam pembelajaran'],
             ['grup' => 'A', 'kode' => 'A7', 'deskripsi' => 'Tidak memelihara kebersihan lingkungan sekitarnya'],
-            // Grup B
             ['grup' => 'B', 'kode' => 'B1', 'deskripsi' => 'Menggunakan HP saat kegiatan sekolah'],
             ['grup' => 'B', 'kode' => 'B2', 'deskripsi' => 'Membawa Alat Rias'],
             ['grup' => 'B', 'kode' => 'B3', 'deskripsi' => 'Meninggalkan sekolah tanpa izin'],
@@ -29,7 +29,6 @@ class PelanggaranSeeder extends Seeder
             ['grup' => 'B', 'kode' => 'B6', 'deskripsi' => 'Membuat dan atau menyebarkan pernyataan bohong/tidak benar'],
             ['grup' => 'B', 'kode' => 'B7', 'deskripsi' => 'Berkata kotor/mengumpat'],
             ['grup' => 'B', 'kode' => 'B8', 'deskripsi' => 'Memainkan permainan kartu pada waktu dan tempat serta dengan tujuan yang tidak tepat'],
-            // Grup C
             ['grup' => 'C', 'kode' => 'C1', 'deskripsi' => 'Membawa dan menggunakan senjata tajam'],
             ['grup' => 'C', 'kode' => 'C2', 'deskripsi' => 'Membawa dan menggunakan rokok konvensional/elektrik'],
             ['grup' => 'C', 'kode' => 'C3', 'deskripsi' => 'Berkelahi'],
@@ -44,7 +43,11 @@ class PelanggaranSeeder extends Seeder
         ];
 
         foreach ($pelanggarans as $pelanggaran) {
-            Pelanggaran::create($pelanggaran);
+            // ✅ PERBAIKAN: Gunakan updateOrCreate
+            Pelanggaran::updateOrCreate(
+                ['kode' => $pelanggaran['kode']], // Cari berdasarkan 'kode'
+                $pelanggaran // Data untuk di-update atau dibuat
+            );
         }
     }
 }
