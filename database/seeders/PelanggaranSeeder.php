@@ -9,11 +9,7 @@ class PelanggaranSeeder extends Seeder
 {
     public function run(): void
     {
-        // Data awal tidak perlu dihapus karena updateOrCreate akan menanganinya
-        // Pelanggaran::query()->delete(); 
-
         $pelanggarans = [
-            // ... (daftar pelanggaran Anda tidak berubah)
             ['grup' => 'A', 'kode' => 'A1', 'deskripsi' => 'Datang terlambat'],
             ['grup' => 'A', 'kode' => 'A2', 'deskripsi' => 'Atribut tidak lengkap'],
             ['grup' => 'A', 'kode' => 'A3', 'deskripsi' => 'Seragam tidak sesuai (termasuk sepatu)'],

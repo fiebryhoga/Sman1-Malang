@@ -6,8 +6,9 @@ use App\Models\Siswa;
 use App\Models\Kelas;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Maatwebsite\Excel\Concerns\WithValidation;
 
-class SiswaImport implements ToModel, WithHeadingRow
+class SiswaImport implements ToModel, WithHeadingRow, WithValidation
 {
     /**
     * @param array $row
@@ -16,7 +17,9 @@ class SiswaImport implements ToModel, WithHeadingRow
     */
     public function model(array $row)
     {
-        if (!isset($row['nis'])) {
+        // ✅ PERBAIKAN: Jika NIS kosong, lewati baris ini.
+        // Ini akan secara otomatis mengabaikan baris kosong di akhir file.
+        if (empty($row['nis'])) {
             return null;
         }
 
@@ -30,20 +33,39 @@ class SiswaImport implements ToModel, WithHeadingRow
             ],
             [
                 'nama_lengkap'  => $row['nama_lengkap'],
-                'jenis_kelamin' => !empty($row['jenis_kelamin']) ? strtoupper(substr($row['jenis_kelamin'], 0, 1)) : null,
-                'nomor_ortu'    => $row['nomor_ortu'] ?? null,
                 'kelas_id'      => $kelas?->id,
+                'jenis_kelamin' => strtoupper(substr($row['jenis_kelamin'], 0, 1)),
+                'agama' => $row['agama'],
+                'nisn' => $row['nisn'],
+                'angkatan' => $row['angkatan'],
+                'nomor_ortu'    => $row['nomor_ortu'] ?? null,
             ]
         );
     }
 
     /**
-     * ✅ TAMBAHKAN INI
-     * Method ini memberitahu Laravel Excel bahwa judul kolom (header)
-     * dimulai dari baris ke-3, bukan baris ke-1.
+     * @return int
      */
     public function headingRow(): int
     {
         return 3;
     }
-}
+
+    /**
+     * @return array
+     */
+    public function rules(): array
+    {
+        return [
+            // Kita gunakan validasi 'nullable' agar baris kosong bisa dilewati oleh method model()
+            'nis' => 'nullable|numeric', 
+            'nama_lengkap' => 'nullable|string',
+            'nama_kelas' => 'nullable|exists:kelas,nama',
+            'jenis_kelamin' => 'nullable|string|in:L,P,l,p,Laki-laki,Perempuan',
+            'agama' => 'nullable|string',
+            'nisn' => 'nullable|numeric',
+            'angkatan' => 'nullable|numeric|digits:4',
+            'nomor_ortu' => 'nullable|numeric',
+        ];
+    }
+} 

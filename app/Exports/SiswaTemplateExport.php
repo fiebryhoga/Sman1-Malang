@@ -16,18 +16,18 @@ class SiswaTemplateExport implements FromArray, WithHeadings, WithColumnWidths, 
      */
     public function headings(): array
     {
-        // ✅ PERUBAHAN: Menambahkan baris instruksi di atas header
         return [
-            // Baris 1: Instruksi
             ['Mohon isi data siswa mulai dari baris ke-4 dan jangan mengubah header di baris ke-3.'],
-            // Baris 2: Spasi
             [],
-            // Baris 3: Header Tabel
+            // ✅ PERUBAHAN: Menyesuaikan urutan kolom
             [
                 'nis',
                 'nama_lengkap',
-                'jenis_kelamin',
                 'nama_kelas',
+                'jenis_kelamin',
+                'agama',
+                'nisn',
+                'angkatan',
                 'nomor_ortu',
             ]
         ];
@@ -38,14 +38,17 @@ class SiswaTemplateExport implements FromArray, WithHeadings, WithColumnWidths, 
      */
     public function array(): array
     {
-        // ✅ PERUBAHAN: Menambahkan baris contoh data
+        // ✅ PERUBAHAN: Memperbarui baris contoh data sesuai urutan baru
         return [
             [
-                'nis' => 'Contoh: 12345',
-                'nama_lengkap' => 'Contoh: Budi Santoso',
-                'jenis_kelamin' => 'Isi L atau P (Opsional)',
-                'nama_kelas' => 'Contoh: X-TKJ-A (Opsional)',
-                'nomor_ortu' => 'Contoh: 08123456789 (Opsional)',
+                'nis' => '19522',
+                'nama_lengkap' => 'ADIRA ZAKI DARMAWAN',
+                'nama_kelas' => 'XII-J',
+                'jenis_kelamin' => 'L',
+                'agama' => 'Islam',
+                'nisn' => '0075488518',
+                'angkatan' => '2023',
+                'nomor_ortu' => '08123456789 (Opsional)',
             ],
         ];
     }
@@ -56,11 +59,14 @@ class SiswaTemplateExport implements FromArray, WithHeadings, WithColumnWidths, 
     public function columnWidths(): array
     {
         return [
-            'A' => 20,
-            'B' => 35,
-            'C' => 25,
-            'D' => 25,
-            'E' => 30,
+            'A' => 15, // nis
+            'B' => 35, // nama_lengkap
+            'C' => 15, // nama_kelas
+            'D' => 15, // jenis_kelamin
+            'E' => 15, // agama
+            'F' => 15, // nisn
+            'G' => 15, // angkatan
+            'H' => 25, // nomor_ortu
         ];
     }
 
@@ -69,23 +75,21 @@ class SiswaTemplateExport implements FromArray, WithHeadings, WithColumnWidths, 
      */
     public function styles(Worksheet $sheet)
     {
-        // Gabungkan sel untuk baris instruksi
-        $sheet->mergeCells('A1:E1');
+        $lastColumn = 'H'; // Sesuaikan dengan jumlah kolom
+        $headerRange = 'A3:' . $lastColumn . '3';
+        $exampleRange = 'A4:' . $lastColumn . '4';
         
-        // Style untuk baris instruksi (baris 1)
-        $sheet->getStyle('A1')->getFont()->setBold(true)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('FF808080')); // Abu-abu gelap
+        $sheet->mergeCells('A1:' . $lastColumn . '1');
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('FF808080'));
         $sheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
-        // Style untuk header tabel (baris 3)
-        $sheet->getStyle('A3:E3')->getFont()->setBold(true);
-        $sheet->getStyle('A3:E3')->getFill()
+        $sheet->getStyle($headerRange)->getFont()->setBold(true);
+        $sheet->getStyle($headerRange)->getFill()
               ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
-              ->getStartColor()->setARGB('FFDDDDDD'); // Abu-abu terang
+              ->getStartColor()->setARGB('FFDDDDDD');
 
-        // Style untuk baris contoh data (baris 4)
-        $sheet->getStyle('A4:E4')->getFont()->setItalic(true)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('FF808080'));
+        $sheet->getStyle($exampleRange)->getFont()->setItalic(true)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('FF808080'));
         
-        // ✅ PERUBAHAN: Tambahkan border hitam pada header dan baris contoh
         $styleArray = [
             'borders' => [
                 'allBorders' => [
@@ -94,7 +98,8 @@ class SiswaTemplateExport implements FromArray, WithHeadings, WithColumnWidths, 
                 ],
             ],
         ];
-        $sheet->getStyle('A3:E4')->applyFromArray($styleArray);
+        $sheet->getStyle($headerRange)->applyFromArray($styleArray);
+        $sheet->getStyle($exampleRange)->applyFromArray($styleArray);
 
         return [];
     }

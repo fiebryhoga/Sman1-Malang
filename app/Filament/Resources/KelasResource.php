@@ -4,7 +4,6 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\KelasResource\Pages;
 use App\Filament\Resources\KelasResource\RelationManagers\SiswasRelationManager;
-use App\Filament\Resources\KelasResource\RelationManagers\MataPelajaransRelationManager; // <-- Pastikan ini ada dan benar
 use App\Models\Kelas;
 use App\Models\User;
 use Filament\Forms\Components\Section;
@@ -28,35 +27,30 @@ class KelasResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-building-library';
     protected static ?string $navigationGroup = 'Data Master';
     protected static ?string $label = 'Kelas';
-        protected static ?string $pluralLabel = 'Daftar Kelas';
+    protected static ?string $pluralLabel = 'Daftar Kelas';
 
+    /**
+     * ✅ TAMBAHKAN INI: Menambahkan badge (lencana) dengan jumlah total kelas.
+     */
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::count();
+    }
 
+    /**
+     * (Opsional) Memberi warna pada badge.
+     */
+    public static function getNavigationBadgeColor(): string|array|null
+    {
+        return 'primary';
+    }
     
-    public static function canViewAny(): bool
-    {
-        return auth()->user()->can('melihat_kelas');
-    }
-
-    
-    public static function canView(Model $record): bool
-    {
-        return auth()->user()->can('melihat_kelas');
-    }
-
-    public static function canCreate(): bool
-    {
-        return auth()->user()->can('mengelola_kelas');
-    }
-
-    public static function canEdit(Model $record): bool
-    {
-        return auth()->user()->can('mengelola_kelas');
-    }
-
-    public static function canDelete(Model $record): bool
-    {
-        return auth()->user()->can('mengelola_kelas');
-    }
+    // ... (method-method can... tidak berubah) ...
+    public static function canViewAny(): bool { return auth()->user()->can('melihat_kelas'); }
+    public static function canView(Model $record): bool { return auth()->user()->can('melihat_kelas'); }
+    public static function canCreate(): bool { return auth()->user()->can('mengelola_kelas'); }
+    public static function canEdit(Model $record): bool { return auth()->user()->can('mengelola_kelas'); }
+    public static function canDelete(Model $record): bool { return auth()->user()->can('mengelola_kelas'); }
 
     public static function form(Form $form): Form
     {
@@ -90,14 +84,10 @@ class KelasResource extends Resource
                     ->label('Tampilkan Kelas Saya Saja')
                     ->query(function (Builder $query): Builder {
                         $userId = auth()->id();
-
-                        // Ambil semua ID kelas tempat user ini mengajar
                         $kelasDiajarIds = DB::table('kelas_mata_pelajaran')
                             ->where('user_id', $userId)
                             ->pluck('kelas_id')
                             ->unique();
-
-                        // Tampilkan kelas di mana user adalah wali kelas ATAU mengajar di kelas tersebut
                         return $query->whereIn('id', $kelasDiajarIds)
                                      ->orWhere('wali_kelas_id', $userId);
                     })
@@ -114,13 +104,11 @@ class KelasResource extends Resource
                         if (empty($data['value'])) {
                             return $query;
                         }
-                        return $query->where('nama', 'like', $data['value'] . ' -%');
+                        return $query->where('nama', 'like', $data['value'] . '-%');
                     })
             ])
             ->actions([
-                // Menambahkan tombol 'View' yang eksplisit
                 Tables\Actions\ViewAction::make(),
-                // Tombol 'Edit' hanya akan muncul jika pengguna memiliki izin 'mengelola_kelas'
                 Tables\Actions\EditAction::make()->visible(fn (Model $record): bool => static::canEdit($record)),
             ]);
     }

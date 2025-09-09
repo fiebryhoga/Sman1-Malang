@@ -16,39 +16,33 @@ use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 
 class SiswaResource extends Resource
 {
     protected static ?string $model = \App\Models\Siswa::class;
-
     protected static ?string $navigationIcon = 'heroicon-o-academic-cap';
     protected static ?string $navigationGroup = 'Data Master';
     protected static ?string $label = 'Siswa';
     protected static ?string $pluralLabel = 'Daftar Siswa';
 
-    public static function canViewAny(): bool
+    public static function getNavigationBadge(): ?string
     {
-        return auth()->user()->can('melihat_siswa');
+        return static::getModel()::count();
     }
 
-    public static function canCreate(): bool
+    public static function getNavigationBadgeColor(): string|array|null
     {
-        return auth()->user()->can('mengelola_siswa');
+        return 'primary';
     }
 
-    public static function canEdit(Model $record): bool
-    {
-        return auth()->user()->can('mengelola_siswa');
-    }
+    public static function canViewAny(): bool { return auth()->user()->can('melihat_siswa'); }
+    public static function canCreate(): bool { return auth()->user()->can('mengelola_siswa'); }
+    public static function canEdit(Model $record): bool { return auth()->user()->can('mengelola_siswa'); }
+    public static function canDelete(Model $record): bool { return auth()->user()->can('mengelola_siswa'); }
 
-    public static function canDelete(Model $record): bool
-    {
-        return auth()->user()->can('mengelola_siswa');
-    }
-
-    // --- Perbaikan Eager Loading ---
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()->with(['kelas']);
@@ -59,16 +53,18 @@ class SiswaResource extends Resource
         return $form
             ->schema([
                 Section::make('Data Pribadi Siswa')->schema([
-                    FileUpload::make('foto')->image()->avatar()->imageEditor()->circleCropper()->directory('foto-siswa'),
+                    FileUpload::make('foto')->image()->avatar()->imageEditor()->circleCropper()->directory('foto-siswa')->columnSpanFull(),
                     TextInput::make('nis')->label('Nomor Induk Siswa (NIS)')->required()->unique(ignoreRecord: true),
-                    TextInput::make('nama_lengkap')->required(),
-                    Radio::make('jenis_kelamin')->options(['L' => 'Laki-laki', 'P' => 'Perempuan'])->required(),
+                    TextInput::make('nisn')
+                        ->label('Nomor Induk Siswa Nasional (NISN)')
+                        ->nullable(),
+                        // ✅ PERBAIKAN: Aturan ->unique(ignoreRecord: true) dihapus dari sini
+                    TextInput::make('nama_lengkap')->required()->columnSpanFull(),
+                    Radio::make('jenis_kelamin')->options(['L' => 'Laki-laki', 'P' => 'Perempuan'])->nullable(),
                     Select::make('kelas_id')->relationship('kelas', 'nama')->searchable()->preload()->label('Kelas'),
-                    TextInput::make('nomor_ortu')
-                        ->label('Nomor HP Orang Tua')
-                        ->tel()
-                        ->nullable()
-                        ->maxLength(255),
+                    Select::make('agama')->options(['Islam'=>'Islam', 'Kristen'=>'Kristen', 'Katolik'=>'Katolik', 'Hindu'=>'Hindu', 'Buddha'=>'Buddha', 'Konghucu'=>'Konghucu'])->nullable(),
+                    TextInput::make('angkatan')->numeric()->nullable(),
+                    TextInput::make('nomor_ortu')->label('Nomor HP Orang Tua')->tel()->nullable(),
                 ])->columns(2)
             ]);
     }
@@ -77,29 +73,46 @@ class SiswaResource extends Resource
     {
         return $table
             ->columns([
-                // ImageColumn seringkali berat. Kita hapus atau gunakan yang sederhana
+                ImageColumn::make('foto')
+                    ->label('Foto')
+                    ->circular()
+                    ->defaultImageUrl(fn (Model $record): string => 'https://ui-avatars.com/api/?name=' . urlencode($record->nama_lengkap)),
                 TextColumn::make('nis')->searchable()->sortable(),
-                TextColumn::make('nama_lengkap')->searchable(),
-                TextColumn::make('nomor_ortu')->searchable()->label('Nomor HP Orang Tua'),
-                // Eager loading di getEloquentQuery akan memastikan ini cepat
+                TextColumn::make('nama_lengkap')->label('Nama')->searchable(),
                 TextColumn::make('kelas.nama')->searchable()->sortable()->default('Belum ada kelas'),
-                TextColumn::make('jenis_kelamin'),
+                TextColumn::make('angkatan')->sortable(),
             ])
             ->filters([
-                SelectFilter::make('kelas_id')
-                    ->relationship('kelas', 'nama')
-                    ->searchable()
-                    ->preload()
-                    ->label('Filter Berdasarkan Kelas'),
-                SelectFilter::make('jenis_kelamin')
-                    ->options([
-                        'L' => 'Laki-laki',
-                        'P' => 'Perempuan',
-                    ])
+                SelectFilter::make('kelas_id')->relationship('kelas', 'nama')->searchable()->preload()->label('Filter Kelas'),
+                SelectFilter::make('angkatan')->label('Filter Angkatan')->options(
+                    Siswa::query()->distinct()->pluck('angkatan', 'angkatan')->filter()->sort()
+                ),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\BulkAction::make('pindahkan_kelas')
+                        ->label('Pindahkan Kelas')
+                        ->icon('heroicon-o-building-library')
+                        ->form([
+                            Select::make('kelas_id_baru')
+                                ->label('Pilih Kelas Baru')
+                                ->relationship('kelas', 'nama')
+                                ->searchable()
+                                ->preload()
+                                ->required(),
+                        ])
+                        ->action(function (Collection $records, array $data) {
+                            $records->each->update([
+                                'kelas_id' => $data['kelas_id_baru'],
+                            ]);
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                ]),
             ]);
     }
 

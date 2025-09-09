@@ -85,4 +85,8 @@ class User extends Authenticatable implements FilamentUser, HasAvatar // <-- Tam
         // Untuk awal, semua user bisa akses panel. Nanti bisa diatur lebih lanjut.
         return true;
     }
+public function ekstrakurikulersDiampu(): BelongsToMany
+    {
+        return $this->belongsToMany(Ekstrakurikuler::class, 'ekstrakurikuler_user');
+    }
 }

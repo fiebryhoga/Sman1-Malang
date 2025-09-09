@@ -31,8 +31,8 @@ class KelasSeeder extends Seeder
         // Loop untuk membuat kelas secara otomatis
         foreach ($tingkatan as $tingkat) {
             foreach ($abjad as $huruf) {
-                // Gabungkan untuk membuat nama kelas, contoh: "X - A", "XI - K"
-                $namaKelas = $tingkat . ' - ' . $huruf;
+                // ✅ PERBAIKAN: Menghapus spasi di sekitar tanda hubung
+                $namaKelas = $tingkat . '-' . $huruf;
 
                 Kelas::create([
                     'nama' => $namaKelas,
@@ -41,6 +41,7 @@ class KelasSeeder extends Seeder
             }
         }
         
-        $this->command->info('Seeder Kelas berhasil dijalankan.');
+        $this->command->info('Seeder Kelas dengan format baru berhasil dijalankan.');
     }
 }
+

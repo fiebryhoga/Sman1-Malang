@@ -33,7 +33,6 @@ class PelanggaranRecordResource extends Resource
     protected static ?string $label = 'Catatan Pelanggaran';
     protected static ?string $pluralLabel = 'Catatan Pelanggaran';
 
-    // ... (method can... dan form() tidak berubah) ...
     public static function canViewAny(): bool { return auth()->user()->can('mengelola_pelanggaran'); }
     public static function canCreate(): bool { return auth()->user()->can('mengelola_pelanggaran'); }
     public static function canEdit(Model $record): bool { return auth()->user()->can('mengelola_pelanggaran'); }
