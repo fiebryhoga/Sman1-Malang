@@ -2,10 +2,8 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\Login; // ✅ 1. Pastikan use statement ini benar
 use Filament\Http\Middleware\Authenticate;
-use Filament\Http\Middleware\AuthenticateSession;
-use Filament\Http\Middleware\DisableBladeIconComponents;
-use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
@@ -17,6 +15,8 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Filament\Http\Middleware\DisableBladeIconComponents;
+use Filament\Http\Middleware\DispatchServingFilamentEvent;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -26,11 +26,17 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->login()
+            
+            // ✅ 2. Daftarkan class Login kustom Anda di sini
+            ->login(Login::class)
+            
+            // ✅ 3. Atur nama sekolah. Ini akan tampil di login dan sidebar.
+            ->brandName('SMAN 1 Malang')
+            // Hapus brandLogo agar hanya nama yang tampil
+            // ->brandLogo(...)
+            
             ->colors([
                 'primary' => Color::Pink,
-                // 'primary' => Color::Blue,
-
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
@@ -45,7 +51,6 @@ class AdminPanelProvider extends PanelProvider
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
-                AuthenticateSession::class,
                 ShareErrorsFromSession::class,
                 VerifyCsrfToken::class,
                 SubstituteBindings::class,

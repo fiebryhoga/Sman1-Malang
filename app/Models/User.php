@@ -1,5 +1,4 @@
 <?php
-// app/Models/User.php
 
 namespace App\Models;
 
@@ -10,16 +9,18 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Traits\HasRoles;
-use Illuminate\Database\Eloquent\Relations\HasOne; // Pastikan ini ada
-use Illuminate\Database\Eloquent\Relations\HasMany; // Pastikan ini ada
-use Illuminate\Database\Eloquent\Relations\BelongsToMany; // Pastikan ini ada
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-class User extends Authenticatable implements FilamentUser, HasAvatar // <-- Tambahkan HasAvatar
+class User extends Authenticatable implements FilamentUser, HasAvatar
 {
     use Notifiable, HasRoles;
 
     protected $fillable = [
+        'nip',
         'name',
+        'no_telepon',
         'email',
         'password',
         'avatar_url', 
@@ -30,9 +31,45 @@ class User extends Authenticatable implements FilamentUser, HasAvatar // <-- Tam
         if ($this->avatar_url) {
             return Storage::disk('public')->url($this->avatar_url);
         }
-
-        // Fallback jika tidak ada foto, menggunakan UI Avatars
         return 'https://ui-avatars.com/api/?name=' . urlencode($this->name) . '&color=FFFFFF&background=0284C7';
+    }
+    
+    protected static function booted(): void
+    {
+        static::created(function (User $user) {
+            if ($user->roles->isEmpty()) {
+                $user->assignRole('Guru Mata Pelajaran');
+            }
+        });
+    }
+
+    /**
+     * ✅ TAMBAHKAN INI: Mutator untuk memformat nomor telepon secara otomatis.
+     * Fungsi ini akan berjalan setiap kali Anda mencoba mengisi atribut 'no_telepon'.
+     *
+     * @param  string|null  $value
+     * @return void
+     */
+    public function setNoTeleponAttribute($value)
+    {
+        if (empty($value)) {
+            $this->attributes['no_telepon'] = null;
+            return;
+        }
+
+        // 1. Hapus semua karakter selain angka
+        $nomor = preg_replace('/[^0-9]/', '', $value);
+
+        // 2. Jika diawali '62', ganti dengan '0'
+        if (substr($nomor, 0, 2) === '62') {
+            $nomor = '0' . substr($nomor, 2);
+        }
+        // 3. Jika diawali '8' (tanpa '0' di depannya), tambahkan '0'
+        elseif (substr($nomor, 0, 1) === '8') {
+            $nomor = '0' . $nomor;
+        }
+        
+        $this->attributes['no_telepon'] = $nomor;
     }
 
     public function kelasWali(): HasOne

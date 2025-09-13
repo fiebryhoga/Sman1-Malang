@@ -14,49 +14,46 @@ use Filament\Tables;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
 
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
-
     protected static ?string $navigationIcon = 'heroicon-o-users';
     protected static ?string $navigationGroup = 'Admin Management';
-    protected static ?string $label = 'Pengguna';
-        protected static ?string $pluralLabel = 'Daftar User';
+    // ✅ PERBAIKAN: Ubah label
+    protected static ?string $label = 'Guru / Pegawai';
+    protected static ?string $pluralLabel = 'Daftar Guru / Pegawai';
 
-
-    public static function canViewAny(): bool
-    {
-        return auth()->user()->can('melihat_pengguna');
-    }
-
-    public static function canCreate(): bool
-    {
-        return auth()->user()->can('mengelola_pengguna');
-    }
-
-    public static function canEdit(Model $record): bool
-    {
-        return auth()->user()->can('mengelola_pengguna');
-    }
-
-    public static function canDelete(Model $record): bool
-    {
-        return auth()->user()->can('mengelola_pengguna');
-    }
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Section::make('Informasi Pengguna')
+                Section::make('Informasi Guru / Pegawai')
                     ->schema([
                         FileUpload::make('avatar_url')->label('Foto Profil')->image()->avatar()->imageEditor()->circleCropper()->directory('avatars'),
-                        TextInput::make('name')->required()->label('Nama Lengkap'),
-                        TextInput::make('email')->email()->required()->unique(ignoreRecord: true),
-                        TextInput::make('password')->password()->dehydrateStateUsing(fn ($state) => Hash::make($state))->dehydrated(fn ($state) => filled($state))->required(fn (string $context): bool => $context === 'create'),
+                        // ✅ PERBAIKAN: Ganti email dengan NIP dan tambahkan kolom baru
+                        TextInput::make('nip')
+                            ->label('NIP')
+                            ->required()
+                            ->unique(ignoreRecord: true),
+                        TextInput::make('name')
+                            ->required()
+                            ->label('Nama Lengkap'),
+                        TextInput::make('no_telepon')
+                            ->label('No. Telepon (Opsional)')
+                            ->tel(),
+                        TextInput::make('email')
+                            ->label('Email (Opsional)')
+                            ->email()
+                            ->unique(ignoreRecord: true),
+                        TextInput::make('password')
+                            ->password()
+                            ->dehydrateStateUsing(fn ($state) => Hash::make($state))
+                            ->dehydrated(fn ($state) => filled($state))
+                            ->required(fn (string $context): bool => $context === 'create')
+                            ->columnSpanFull(),
                     ])->columns(2),
                 Section::make('Peran (Role)')
                     ->schema([
@@ -70,8 +67,9 @@ class UserResource extends Resource
         return $table
             ->columns([
                 ImageColumn::make('avatar_url')->label('Foto')->circular(),
+                // ✅ PERBAIKAN: Tampilkan NIP, bukan email
+                TextColumn::make('nip')->label('NIP')->searchable(),
                 TextColumn::make('name')->label('Nama')->searchable(),
-                TextColumn::make('email')->searchable(),
                 TextColumn::make('roles.name')->label('Peran')->badge(),
             ])
             ->actions([
