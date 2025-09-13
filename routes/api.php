@@ -5,7 +5,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\BaileysWebhookController; 
 
-use App\Http\Controllers\Api\ApiPresensiController; 
+use App\Http\Controllers\Api\ApiPresensiController;
+use App\Http\Controllers\Api\PelanggaranNotificationController;
+
 
 
 
@@ -20,6 +22,11 @@ Route::post('/webhook/baileys', [BaileysWebhookController::class, 'handle']);
 
 
 Route::post('/disciplinary-notification', [DisciplinaryPointController::class, 'sendNotification']);
+
+
+
+Route::post('/pelanggaran/{record}/send-notification', [PelanggaranNotificationController::class, 'sendNotification']);
+
 
 
 // Route::match(['get', 'post'], '/webhook/fonte', [FonteWebhookController::class, 'handle']);

@@ -16,18 +16,18 @@ class BaileysService
 
     public function sendMessage($number, $message, $deviceName = 'my-bot-session')
     {
-        // Ganti nomor JID WhatsApp menjadi format yang dapat dibaca oleh Baileys.
         $number = str_replace(['@s.whatsapp.net', '@g.us'], '', $number);
 
         try {
-            $response = Http::post("{$this->baseUrl}/send-message", [
+            // Beri waktu tunggu 170 detik (sedikit di bawah timeout Job)
+            $response = Http::timeout(170)->post("{$this->baseUrl}/send-message", [
                 'deviceName' => $deviceName,
                 'number' => $number,
                 'message' => $message,
             ]);
 
             if ($response->successful()) {
-                Log::info('Pesan berhasil dikirim ke Baileys API.', ['target' => $number]);
+                Log::info('Pesan berhasil dikirim via Baileys API.', ['target' => $number]);
                 return true;
             }
 

@@ -6,7 +6,6 @@ use App\Filament\Resources\PelanggaranRecordResource\Pages;
 use App\Models\Pelanggaran;
 use App\Models\PelanggaranRecord;
 use App\Models\Siswa;
-use Filament\Forms\Components\DatePicker; 
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -19,7 +18,6 @@ use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -27,17 +25,17 @@ use Illuminate\Database\Eloquent\Model;
 class PelanggaranRecordResource extends Resource
 {
     protected static ?string $model = PelanggaranRecord::class;
-
     protected static ?string $navigationIcon = 'heroicon-o-exclamation-triangle';
     protected static ?string $navigationGroup = 'Kesiswaan';
     protected static ?string $label = 'Catatan Pelanggaran';
     protected static ?string $pluralLabel = 'Catatan Pelanggaran';
 
+    // ... (method-method can... tidak berubah) ...
     public static function canViewAny(): bool { return auth()->user()->can('mengelola_pelanggaran'); }
     public static function canCreate(): bool { return auth()->user()->can('mengelola_pelanggaran'); }
     public static function canEdit(Model $record): bool { return auth()->user()->can('mengelola_pelanggaran'); }
     public static function canDelete(Model $record): bool { return auth()->user()->can('mengelola_pelanggaran'); }
-
+    
     public static function form(Form $form): Form
     {
         return $form
@@ -46,11 +44,21 @@ class PelanggaranRecordResource extends Resource
                     Select::make('siswa_id')
                         ->label('Siswa')
                         ->options(
-                            Siswa::with('kelas')->get()->mapWithKeys(function ($siswa) {
-                                $kelasNama = $siswa->kelas->nama ?? 'Tanpa Kelas';
-                                $label = "{$siswa->nis} - {$siswa->nama_lengkap} - {$kelasNama}";
-                                return [$siswa->id => $label];
-                            })
+                            // Opsi siswa disaring berdasarkan kelas wali kelas yang login
+                            Siswa::query()
+                                ->when(auth()->user()->hasRole('Guru Wali Kelas'), function ($query) {
+                                    $kelasId = auth()->user()->kelasWali?->id;
+                                    if ($kelasId) {
+                                        $query->where('kelas_id', $kelasId);
+                                    }
+                                })
+                                ->with('kelas')
+                                ->get()
+                                ->mapWithKeys(function ($siswa) {
+                                    $kelasNama = $siswa->kelas->nama ?? 'Tanpa Kelas';
+                                    $label = "{$siswa->nis} - {$siswa->nama_lengkap} - {$kelasNama}";
+                                    return [$siswa->id => $label];
+                                })
                         )
                         ->searchable()
                         ->preload()
@@ -76,7 +84,6 @@ class PelanggaranRecordResource extends Resource
             ]);
     }
 
-
     public static function table(Table $table): Table
     {
         return $table
@@ -87,31 +94,11 @@ class PelanggaranRecordResource extends Resource
                 TextColumn::make('pelanggaran.deskripsi')->label('Pelanggaran')->searchable()->limit(50),
             ])
             ->filters([
-                // ✅ FILTER KELAS
-                Tables\Filters\SelectFilter::make('kelas')
-                    ->label('Filter Kelas')
-                    ->relationship('siswa.kelas', 'nama')
-                    ->searchable()
-                    ->preload(),
-                
-                // ✅ FILTER PELANGGARAN
                 Tables\Filters\SelectFilter::make('pelanggaran_id')
                     ->label('Filter Pelanggaran')
                     ->relationship('pelanggaran', 'deskripsi')
                     ->searchable()
                     ->preload(),
-
-                // ✅ FILTER TANGGAL
-                Filter::make('created_at')
-                    ->form([
-                        DatePicker::make('created_from')->label('Dicatat Dari Tanggal'),
-                        DatePicker::make('created_until')->label('Dicatat Sampai Tanggal'),
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when($data['created_from'], fn (Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date))
-                            ->when($data['created_until'], fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date));
-                    })
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
@@ -126,7 +113,37 @@ class PelanggaranRecordResource extends Resource
             ->defaultSort('created_at', 'desc');
     }
 
-    // ... (method infolist, getEloquentQuery, getRelations, dan getPages() tidak berubah) ...
+    /**
+     * ✅ PERBAIKAN UTAMA: Menambahkan logika penyaringan data berdasarkan peran pengguna.
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        $user = auth()->user();
+        $query = parent::getEloquentQuery()->with(['siswa.kelas', 'pelanggaran', 'user']);
+
+        // Super Admin bisa melihat semua data pelanggaran.
+        if ($user->hasRole('Super Admin')) {
+            return $query;
+        }
+
+        // Guru Wali Kelas hanya bisa melihat pelanggaran siswa di kelas perwaliannya.
+        if ($user->hasRole('Guru Wali Kelas')) {
+            // Dapatkan ID kelas di mana user ini menjadi wali kelas.
+            $kelasId = $user->kelasWali?->id;
+
+            if ($kelasId) {
+                // Saring catatan pelanggaran di mana 'siswa' memiliki 'kelas_id' yang cocok.
+                return $query->whereHas('siswa', function (Builder $subQuery) use ($kelasId) {
+                    $subQuery->where('kelas_id', $kelasId);
+                });
+            }
+        }
+        
+        // Untuk peran lain (atau wali kelas yang belum punya kelas), jangan tampilkan data apa pun.
+        return $query->whereRaw('0 = 1');
+    }
+    
+    // ... sisa resource tidak berubah ...
     public static function infolist(Infolist $infolist): Infolist
     {
         return $infolist->schema([
@@ -142,11 +159,6 @@ class PelanggaranRecordResource extends Resource
                     TextEntry::make('created_at')->label('Waktu Dicatat')->dateTime('l, d F Y H:i'),
                 ])->columns(2),
         ]);
-    }
-
-    public static function getEloquentQuery(): Builder
-    {
-        return parent::getEloquentQuery()->with(['siswa.kelas', 'pelanggaran', 'user']);
     }
 
     public static function getRelations(): array

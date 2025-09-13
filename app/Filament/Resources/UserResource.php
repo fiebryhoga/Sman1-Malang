@@ -14,18 +14,33 @@ use Filament\Tables;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model; // ✅ Pastikan ini ada
 use Illuminate\Support\Facades\Hash;
 
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-users';
     protected static ?string $navigationGroup = 'Admin Management';
-    // ✅ PERBAIKAN: Ubah label
     protected static ?string $label = 'Guru / Pegawai';
     protected static ?string $pluralLabel = 'Daftar Guru / Pegawai';
 
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::count();
+    }
 
+    public static function getNavigationBadgeColor(): string|array|null
+    {
+        return 'primary';
+    }
+
+    // ... (method form() dan can... tidak berubah)
+    public static function canViewAny(): bool { return auth()->user()->can('melihat_pengguna'); }
+    public static function canCreate(): bool { return auth()->user()->can('mengelola_pengguna'); }
+    public static function canEdit(Model $record): bool { return auth()->user()->can('mengelola_pengguna'); }
+    public static function canDelete(Model $record): bool { return auth()->user()->can('mengelola_pengguna'); }
     public static function form(Form $form): Form
     {
         return $form
@@ -33,7 +48,6 @@ class UserResource extends Resource
                 Section::make('Informasi Guru / Pegawai')
                     ->schema([
                         FileUpload::make('avatar_url')->label('Foto Profil')->image()->avatar()->imageEditor()->circleCropper()->directory('avatars'),
-                        // ✅ PERBAIKAN: Ganti email dengan NIP dan tambahkan kolom baru
                         TextInput::make('nip')
                             ->label('NIP')
                             ->required()
@@ -62,12 +76,17 @@ class UserResource extends Resource
             ]);
     }
 
+
     public static function table(Table $table): Table
     {
         return $table
             ->columns([
-                ImageColumn::make('avatar_url')->label('Foto')->circular(),
-                // ✅ PERBAIKAN: Tampilkan NIP, bukan email
+                ImageColumn::make('avatar_url')
+                    ->label('Foto')
+                    ->circular()
+                    // ✅ PERBAIKAN: Tambahkan baris ini untuk avatar default
+                    ->defaultImageUrl(fn (Model $record): string => 'https://ui-avatars.com/api/?name=' . urlencode($record->name)),
+                
                 TextColumn::make('nip')->label('NIP')->searchable(),
                 TextColumn::make('name')->label('Nama')->searchable(),
                 TextColumn::make('roles.name')->label('Peran')->badge(),
